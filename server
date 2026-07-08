@@ -1,0 +1,619 @@
+import asyncio
+import websockets
+import json
+import time
+
+# --- Sunucu Ayarları ---
+HOST = '0.0.0.0'
+PORT = 8765
+CONNECTED_CLIENTS = set()
+
+
+# --- Yarışçı Veri Yapısı ---
+class Yarismaci:
+    """Tek bir yarışçının zaman verilerini tutar. Tüm süreler artık TAMSAYI SANTİSANİYE (0.01s) olarak saklanır."""
+
+    def __init__(self, yarismaci_id, isim, numara):
+        self.id = yarismaci_id
+        self.isim = isim
+        self.numara = numara
+        self.baslangic_zamani = None
+        # ara_zamanlar formatı: (Santisaniye, Etiket, LiderFarki_Santisaniye, Tur_No)
+        self.ara_zamanlar = []
+        self.durum = "HAZIR"  # HAZIR, AKTIF, BEKLEMEDE, TAMAMLANDI, DISKALIFIYE
+
+        self.tur_1_suresi = 0  # Tamsayı Santisaniye
+        self.aktif_tur = 1
+        self.tur_2_suresi = 0  # Tamsayı Santisaniye
+        self.toplam_sure = 0  # Tamsayı Santisaniye
+        self.tur_2_baslangic_zamani = None
+
+    def guncel_toplam_suresi(self):
+        """
+        Anlık geçen süreyi Tamsayı Santisaniye cinsinden döndürür.
+        """
+        if self.durum == "AKTIF":
+            if self.aktif_tur == 1 and self.baslangic_zamani:
+                anlik_santisaniye = int(round((time.time() - self.baslangic_zamani) * 100))
+                return anlik_santisaniye
+            elif self.aktif_tur == 2 and self.tur_2_baslangic_zamani:
+                tur_2_anlik_santisine = int(round((time.time() - self.tur_2_baslangic_zamani) * 100))
+                return self.tur_1_suresi + tur_2_anlik_santisine
+
+        if self.durum == "TAMAMLANDI" and self.toplam_sure > 0:
+            return self.toplam_sure
+
+        if self.tur_1_suresi > 0:
+            return self.tur_1_suresi
+
+        return 0
+
+
+# --- Yarış Yöneticisi Sınıfı ---
+class YarisYoneticisi:
+    """Yarışçıları ve yarış durumunu yönetir."""
+
+    def __init__(self):
+        self.yarismacilar = {}
+        self.siradaki_numara = 1
+
+    def formatla(self, santisaniye):
+        """Tamsayı Santisaniyeyi MM:SS.ss formatına dönüştürür."""
+        if santisaniye is None or santisaniye == 0:
+            return "00:00.00"
+
+        abs_santisaniye = abs(santisaniye)
+        salise = int(abs_santisaniye % 100)
+        s = int((abs_santisaniye // 100) % 60)
+        m = int((abs_santisaniye // 100) // 60)
+
+        return f"{m:02d}:{s:02d}.{salise:02d}"
+
+    def formatla_fark(self, fark_santisaniye):
+        """Tamsayı Santisaniyeyi +S.ss veya -S.ss formatına dönüştürür."""
+
+        if abs(fark_santisaniye) == 0:
+            return "0.00"
+
+        isaret = "+" if fark_santisaniye >= 0 else "-"
+        abs_santisaniye = abs(fark_santisaniye)
+
+        tam_saniye = abs_santisaniye // 100
+        salise = abs_santisaniye % 100
+
+        return f"{isaret}{tam_saniye:d}.{salise:02d}"
+
+    def yarisci_ekle(self, isim):
+        """Yeni bir yarışçı ekler."""
+        y_id = str(self.siradaki_numara)
+        y = Yarismaci(y_id, isim, self.siradaki_numara)
+        self.yarismacilar[y_id] = y
+        self.siradaki_numara += 1
+        return y_id
+
+    def _mevcut_lideri_bul(self):
+        """
+        Şu anda yarışta en iyi performansa sahip yarışmacıyı bulur.
+        Öncelik: Tamamlanmış Toplam Süre -> Tamamlanmış 1. Tur Süresi
+        """
+        # 1. Tur 2'yi tamamlayan lideri bul (Toplam Süre)
+        bitirenler = [y for y in self.yarismacilar.values() if y.durum == "TAMAMLANDI" and y.toplam_sure > 0]
+        if bitirenler:
+            return min(bitirenler, key=lambda y: y.toplam_sure)
+
+        # 2. Tur 1'i tamamlayıp bekleyen lideri bul (1. Tur Süresi)
+        bekleyenler = [y for y in self.yarismacilar.values() if y.durum == "BEKLEMEDE" and y.tur_1_suresi > 0]
+        if bekleyenler:
+            return min(bekleyenler, key=lambda y: y.tur_1_suresi)
+
+        # 3. Hiç bitiren yoksa, referans için lider yoktur.
+        return None
+
+    def _lider_farki_hesapla_anlik(self, yarismaci_id):
+        """
+        Aktif yarışmacının anlık toplam FARKINI, son kaydettiği fark + mevcut sektör performansı
+        temelinde hesaplar. Referans olarak mevcut genel liderin sektör süresi kullanılır.
+        """
+        y = self.yarismacilar.get(yarismaci_id)
+        if not y or y.durum != "AKTIF":
+            return 0, None
+
+        aktif_tur = y.aktif_tur
+        guncel_anlik_santisaniye = y.guncel_toplam_suresi()
+
+        # Son Kapı kaydını bul (Kapı 1 veya Kapı 2). Bitişi referans almayız.
+        son_kapı_kaydı = next(
+            (r for r in reversed(y.ara_zamanlar) if r[3] == aktif_tur and r[1] in ["Kapı 1", "Kapı 2"]), None)
+
+        # Eğer hiç kapıdan geçilmemişse (Başlangıç veya 2. Tur Başlangıç)
+        if not son_kapı_kaydı:
+            if aktif_tur == 1 and y.baslangic_zamani:
+                return 0, "BAŞLANGIÇ"
+            elif aktif_tur == 2 and y.tur_2_baslangic_zamani:
+                # 2. turda Kapı 1'den önceyiz. Farkı 1. tur bitiş farkından başlat.
+                tur_1_bitis_kaydi = next((r for r in reversed(y.ara_zamanlar) if r[3] == 1 and r[1] == "Bitiş"), None)
+                if tur_1_bitis_kaydi:
+                    return tur_1_bitis_kaydi[2], "2. Tur Başlangıç"
+                return 0, "2. Tur Başlangıç"
+            return 0, None
+
+        # ----------------------------------------------------
+        # --- Son Kapıdan Geçilmişse Canlı Fark Hesaplaması ---
+        # ----------------------------------------------------
+
+        son_kayıt_toplam_süre = son_kapı_kaydı[0]
+        son_kayıt_fark = son_kapı_kaydı[2]
+        referans_etiket = son_kapı_kaydı[1]
+
+        # 1. Aktif Yarışmacının Geçen Sektör Süresi (SektörDelta)
+        aktif_sektor_delta = guncel_anlik_santisaniye - son_kayıt_toplam_süre
+
+        # 2. Liderin O Sektördeki Süresini Bulma (Lider Sektör Hızı Referansı)
+
+        # Mevcut genel lideri bul
+        lider_yarismaci = self._mevcut_lideri_bul()
+
+        # Eğer hiç bitiren yoksa (lider belirlenemiyorsa), farkı hesaplamadan son kaydedilen farkı döndür.
+        if lider_yarismaci is None:
+            return son_kayıt_fark, referans_etiket
+
+        if referans_etiket == "Kapı 1":
+            hedef_etiket = "Kapı 2"
+            baslangic_etiket = "Kapı 1"
+        elif referans_etiket == "Kapı 2":
+            hedef_etiket = "Bitiş"
+            baslangic_etiket = "Kapı 2"
+        else:
+            return son_kayıt_fark, referans_etiket
+
+        # Liderin Sektör Süresini Hesaplamak için bir değişken tanımla
+        lider_referans_sektor_suresi = float('inf')
+
+        # Liderin ilgili turundaki (aktif yarışmacının turu) hedef ve başlangıç kapısı kayıtlarını al.
+        hedef_süre = next((r[0] for r in lider_yarismaci.ara_zamanlar if r[1] == hedef_etiket and r[3] == aktif_tur),
+                          None)
+        baslangic_süre = next(
+            (r[0] for r in lider_yarismaci.ara_zamanlar if r[1] == baslangic_etiket and r[3] == aktif_tur), None)
+
+        if hedef_süre is not None and baslangic_süre is not None:
+            # Sektör süresi = Hedef Kümülatif Süre - Başlangıç Kümülatif Süre
+            sektor_suresi = hedef_süre - baslangic_süre
+            if sektor_suresi > 0:
+                lider_referans_sektor_suresi = sektor_suresi
+
+        # Eğer Liderin Sektör Süresi Bulunamazsa (örneğin lider o sektörden daha geçmemişse),
+        # en son kaydedilen farkı döndür.
+        if lider_referans_sektor_suresi == float('inf'):
+            return son_kayıt_fark, referans_etiket
+
+            # 3. Hesaplama
+        # Anlık sektör farkı = Aktif yarışmacının sektör delta süresi - Liderin referans sektör süresi
+        anlik_sektor_farki = aktif_sektor_delta - lider_referans_sektor_suresi
+        # Toplam fark = Son kaydedilen kümülatif fark + anlık sektör farkı
+        anlik_fark = son_kayıt_fark + anlik_sektor_farki
+
+        return anlik_fark, referans_etiket
+
+    def sinyal_baslat(self, yarismaci_id, client_time=None): # YENİ: client_time parametresi
+        """Yarışçı için 1. tur başlangıç sinyali kaydeder."""
+        y = self.yarismacilar.get(yarismaci_id)
+        if y and y.durum == "HAZIR":
+            # YENİ: Telefondan gelen mühürlü saati kullan
+            y.baslangic_zamani = float(client_time) if client_time else time.time()
+            y.durum = "AKTIF"
+            y.aktif_tur = 1
+            y.ara_zamanlar = []
+            y.toplam_sure = 0
+            y.tur_1_suresi = 0
+            y.tur_2_suresi = 0
+            y.tur_2_baslangic_zamani = None
+            return f"Yarışçı {y.numara} 1. Tur BAŞLATILDI."
+        return f"Yarışçı ID'si {yarismaci_id} bulunamadı veya 1. tura uygun değil."
+
+    def sinyal_baslat_tur_2(self, yarismaci_id, client_time=None): # YENİ: client_time parametresi
+        """Belirtilen yarışçı için 2. tur başlangıç sinyali kaydeder."""
+        y = self.yarismacilar.get(yarismaci_id)
+        if y and y.tur_1_suresi > 0 and y.durum == "BEKLEMEDE":
+            y.durum = "AKTIF"
+            y.aktif_tur = 2
+            # YENİ: Telefondan gelen mühürlü saati kullan
+            y.tur_2_baslangic_zamani = float(client_time) if client_time else time.time()
+            y.tur_2_suresi = 0
+            y.toplam_sure = 0
+            y.ara_zamanlar = [t for t in y.ara_zamanlar if t[3] == 1]
+            return f"Yarışçı {y.numara} 2. Tur BAŞLATILDI. 1. Tur Süresi: {self.formatla(y.tur_1_suresi)}"
+        return f"Yarışçı ID'si {yarismaci_id} 2. tura uygun değil."
+
+    def sinyal_kaydet(self, yarismaci_id, etiket, client_time=None):
+        """
+        Ara zaman veya bitiş sinyalini kaydeder.
+        YENİ MİMARİ: İstemciden (telefondan) gelen mühürlü zamanı kabul eder.
+        """
+        y = self.yarismacilar.get(yarismaci_id)
+        if y and y.durum == "AKTIF":
+            # Eğer telefondan SIFIR GECİKMELİ, mühürlü süre geldiyse onu kullan!
+            if client_time is not None:
+                gecen_saniye = float(client_time)
+            else:
+                # Eski usül (Eğer telefondan süre gelmezse diye yedek)
+                sinyal_zamani = time.time()
+                baslangic_zamani = y.baslangic_zamani if y.aktif_tur == 1 else y.tur_2_baslangic_zamani
+                if baslangic_zamani is None:
+                    return f"HATA: Yarışçı {y.numara} aktif, ancak başlangıç zamanı yok."
+                gecen_saniye = sinyal_zamani - baslangic_zamani
+
+            gecen_santisaniye = int(round(gecen_saniye * 100))
+            tur_etiketi = y.aktif_tur
+
+            # --- 1. Sektör Süresini Hesapla ---
+            # Yarışçının bu turdaki bir önceki kaydını bul (Başlangıç ise 0 kabul et)
+            onceki_santisaniye = 0
+
+            # Bu turdaki son kaydı bul
+            onceki_kayitlar = [r for r in y.ara_zamanlar if r[3] == tur_etiketi]
+            if onceki_kayitlar:
+                onceki_santisaniye = onceki_kayitlar[-1][0]  # Son kaydın kümülatif süresi
+
+            # 2. Tur için özel durum: Toplam süre üzerinden değil, tur süresi üzerinden sektör hesaplanır
+            # Ancak biz veritabanında "kaydedilecek_santisaniye"yi Tur 2 için (Tur 1 + Tur 2) olarak tutuyoruz.
+            # Sektör farkı için "anlık artışı" bulmamız yeterli.
+
+            if tur_etiketi == 2 and not onceki_kayitlar:
+                # 2. Turun ilk kapısıysa, önceki süre Tur 1 bitiş süresidir (kümülatif hesap için)
+                onceki_santisaniye = y.tur_1_suresi
+
+            kaydedilecek_santisaniye = 0
+            if tur_etiketi == 1:
+                kaydedilecek_santisaniye = gecen_santisaniye
+            else:
+                kaydedilecek_santisaniye = y.tur_1_suresi + gecen_santisaniye
+
+            # Yarışçının Sektör Süresi (Bu kapı ile önceki kapı arası)
+            yarismaci_sektor_suresi = kaydedilecek_santisaniye - onceki_santisaniye
+
+            # --- 2. Lider Referanslarını Bul ---
+            lider_yarismaci = self._mevcut_lideri_bul()
+
+            # Varsayılanlar
+            toplam_fark = 0
+            sektor_farki = 0
+
+            if lider_yarismaci:
+                # A) TOPLAM FARK HESABI (Mevcut Mantık)
+                lider_kümülatif = next(
+                    (r[0] for r in lider_yarismaci.ara_zamanlar if r[1] == etiket and r[3] == tur_etiketi), None)
+                if lider_kümülatif is not None:
+                    toplam_fark = kaydedilecek_santisaniye - lider_kümülatif
+                else:
+                    toplam_fark = 0  # Lider buradan geçmediyse fark yok say
+
+                # B) SEKTÖR FARK HESABI (YENİ)
+                # Liderin bu sektördeki süresini bulmamız lazım.
+                # Liderin şu anki etiket süresi (lider_kümülatif) - Liderin bir önceki etiket süresi
+
+                # Liderin bir önceki kaydını bulalım (Aynı turdaki, şu anki etiketten önceki kayıt)
+                # Liderin tüm kayıtlarını sırayla tarayıp şu anki etiketin indeksini bulalım
+                lider_bu_tur_kayitlari = [r for r in lider_yarismaci.ara_zamanlar if r[3] == tur_etiketi]
+
+                lider_onceki_kümülatif = 0
+                lider_su_anki_bulundu = False
+
+                # Eğer 2. tursa ve ilk kapıysa, liderin önceki kümülatifi Tur 1 süresidir.
+                if tur_etiketi == 2:
+                    lider_onceki_kümülatif = lider_yarismaci.tur_1_suresi
+
+                for r in lider_bu_tur_kayitlari:
+                    if r[1] == etiket:
+                        lider_su_anki_bulundu = True
+                        break
+                    lider_onceki_kümülatif = r[0]  # Bir sonrakine geçmeden önce bunu sakla
+
+                if lider_su_anki_bulundu and lider_kümülatif is not None:
+                    lider_sektor_suresi = lider_kümülatif - lider_onceki_kümülatif
+                    sektor_farki = yarismaci_sektor_suresi - lider_sektor_suresi
+                else:
+                    sektor_farki = 0  # Referans yok
+
+            # --- 3. Kayıt (Tuple yapısını genişletiyoruz) ---
+            # Yeni Yapı: (Kümülatif, Etiket, ToplamFark, Tur, SektörSüresi, SektörFarkı)
+            y.ara_zamanlar.append(
+                (kaydedilecek_santisaniye, etiket, toplam_fark, tur_etiketi, yarismaci_sektor_suresi, sektor_farki))
+
+            if etiket == "Bitiş":
+                if y.aktif_tur == 1:
+                    y.tur_1_suresi = kaydedilecek_santisaniye
+                    y.durum = "BEKLEMEDE"
+                    y.aktif_tur = 1
+                    y.baslangic_zamani = None
+                    return f"Yarışçı {y.numara} 1. Tur BİTİRDİ."
+                elif y.aktif_tur == 2:
+                    y.durum = "TAMAMLANDI"
+                    y.tur_2_suresi = gecen_santisaniye
+                    y.toplam_sure = kaydedilecek_santisaniye
+                    y.aktif_tur = 2
+                    y.tur_2_baslangic_zamani = None
+                    return f"Yarışçı {y.numara} 2. Tur BİTİRDİ."
+
+            return f"Kayıt Başarılı: {etiket}"
+
+        return "Hata: Yarışçı aktif değil."
+
+    def sifirla_hepsi(self):
+        """Tüm yarışçıları HAZIR'a çeker."""
+        for y in self.yarismacilar.values():
+            y.durum = "HAZIR"
+            y.baslangic_zamani = None
+            y.ara_zamanlar = []
+            y.tur_1_suresi = 0
+            y.aktif_tur = 1
+            y.toplam_sure = 0
+            y.tur_2_baslangic_zamani = None
+            y.tur_2_suresi = 0
+        self.siradaki_numara = 1
+        self.yarismacilar = {}
+        return "Tüm yarışçılar sıfırlandı ve HAZIR konuma çekildi."
+
+    def liderlik_tablosu_hazirla(self):
+        """
+        1. ve 2. Tur için liderlik tablolarını hazırlar (En hızlıdan En yavaşa).
+        """
+        tablo_1 = {}
+        tablo_2 = {}
+
+        tur_1_bitirenler = [
+            y for y in self.yarismacilar.values()
+            if y.tur_1_suresi > 0
+        ]
+        tur_1_bitirenler.sort(key=lambda y: y.tur_1_suresi)
+
+        for sira, y in enumerate(tur_1_bitirenler, 1):
+            tablo_1[y.id] = {
+                "sira": sira,
+                "sure": self.formatla(y.tur_1_suresi)
+            }
+
+        tur_2_bitirenler = [
+            y for y in self.yarismacilar.values()
+            if y.toplam_sure > 0
+        ]
+        tur_2_bitirenler.sort(key=lambda y: y.toplam_sure)
+
+        lider_santisaniye = tur_2_bitirenler[0].toplam_sure if tur_2_bitirenler else 0
+
+        for sira, y in enumerate(tur_2_bitirenler, 1):
+            fark_santisaniye = y.toplam_sure - lider_santisaniye
+
+            tablo_2[y.id] = {
+                "sira": sira,
+                "sure": self.formatla(y.toplam_sure),
+                "fark": self.formatla_fark(fark_santisaniye)
+            }
+
+        return tablo_1, tablo_2
+
+    def ikinci_tur_siralamasi(self):
+        """1. turu BEKLEMEDE olanları 1. tur sürelerine göre tersten sıralar."""
+        sira_bekleyenler = [
+            y for y in self.yarismacilar.values()
+            if y.tur_1_suresi > 0 and y.durum == "BEKLEMEDE"
+        ]
+
+        sira_bekleyenler.sort(key=lambda y: y.tur_1_suresi, reverse=True)
+
+        return [{
+            "id": y.id,
+            "numara": y.numara,
+            "isim": y.isim,
+            "tur_1_suresi_str": self.formatla(y.tur_1_suresi)
+        } for y in sira_bekleyenler]
+
+
+# --- Global Yarış Yöneticisi ve WebSocket İşleyicileri ---
+YARIS_YONETICISI = YarisYoneticisi()
+
+
+async def guncel_yarismaci_listesini_yayinla():
+    """Tüm yarışçıların durumunu ve tur verilerini yayınlar."""
+    tablo_1, tablo_2 = YARIS_YONETICISI.liderlik_tablosu_hazirla()
+    ikinci_tur_sirasi = YARIS_YONETICISI.ikinci_tur_siralamasi()
+
+    tum_yarismacilar = []
+    for y_id, yarismaci in YARIS_YONETICISI.yarismacilar.items():
+
+        son_fark_santisaniye = 0
+        son_etiket = ""
+
+        # Son kayıt mantığı (Listenin son elemanı)
+        if yarismaci.ara_zamanlar:
+             # Tuple'ın 2. indeksi Toplam Fark
+             son_fark_santisaniye = yarismaci.ara_zamanlar[-1][2]
+             son_etiket = yarismaci.ara_zamanlar[-1][1]
+
+        tum_yarismacilar.append({
+            "id": y_id,
+            "numara": yarismaci.numara,
+            "isim": yarismaci.isim,
+            "durum": yarismaci.durum,
+            "aktif_tur": yarismaci.aktif_tur,
+            "kayitlar": [
+                {
+                    "sure": YARIS_YONETICISI.formatla(t[0]),
+                    "etiket": t[1],
+                    "fark": YARIS_YONETICISI.formatla_fark(t[2]),
+                    "tur": t[3],
+                    # Eğer eski veri varsa hata vermesin diye kontrol (yeni eklenenler)
+                    "sektor_sure": YARIS_YONETICISI.formatla(t[4]) if len(t) > 4 else "00:00.00",
+                    "sektor_fark": YARIS_YONETICISI.formatla_fark(t[5]) if len(t) > 5 else "0.00"
+                }
+                for t in yarismaci.ara_zamanlar
+            ],
+            "son_fark_str": YARIS_YONETICISI.formatla_fark(son_fark_santisaniye),
+            "son_etiket": son_etiket,
+            "tablo_1_bilgi": tablo_1.get(y_id, {}),
+            "tablo_2_bilgi": tablo_2.get(y_id, {})
+        })
+
+    mesaj = json.dumps({
+        "tip": "yarismaci_listesi_guncelleme",
+        "yarismacilar": tum_yarismacilar,
+        "ikinci_tur_sirasi": ikinci_tur_sirasi
+    })
+    await asyncio.gather(*[client.send(mesaj) for client in CONNECTED_CLIENTS], return_exceptions=True)
+
+
+async def aktif_zamanlari_yayinla():
+    """
+    GÜNCELLEME: İstemci tabanlı hesaplama için 'gecen_saniye' ham verisi eklendi.
+    Sunucu yükünü azaltmak için bekleme süresi 0.1 saniyeye çıkarıldı.
+    """
+    while True:
+        aktif_yarismacilar = []
+        for y_id, yarismaci in YARIS_YONETICISI.yarismacilar.items():
+            if yarismaci.durum == "AKTIF":
+                # Kümülatif santisaniyeyi al
+                aktif_santisaniye = yarismaci.guncel_toplam_suresi()
+
+                # Ham saniye değeri (İstemci tarafında akıcı animasyon için gerekli)
+                # Santisaniyeyi saniyeye çeviriyoruz (Örn: 1234 -> 12.34)
+                ham_gecen_saniye = aktif_santisaniye / 100.0
+
+                # Anlık lider farkını hesapla
+                fark_santisaniye, referans_etiket = YARIS_YONETICISI._lider_farki_hesapla_anlik(y_id)
+
+                aktif_yarismacilar.append({
+                    "id": y_id,
+                    "zaman": YARIS_YONETICISI.formatla(aktif_santisaniye),  # Yedek olarak formatlı veri
+                    "ham_saniye": ham_gecen_saniye,  # YENİ: İstemci tahmini için
+                    "anlik_fark_str": YARIS_YONETICISI.formatla_fark(fark_santisaniye),
+                    "referans_etiket": referans_etiket
+                })
+
+        if aktif_yarismacilar:
+            mesaj = json.dumps({
+                "tip": "coklu_zaman_guncelleme",
+                "aktif_yarismacilar": aktif_yarismacilar
+            })
+            await asyncio.gather(*[client.send(mesaj) for client in CONNECTED_CLIENTS], return_exceptions=True)
+
+        # Sunucu artık 100 FPS basmak zorunda değil, 10 FPS (0.1s) yeterli.
+        # Akıcılığı istemci (HTML) halledecek.
+        await asyncio.sleep(0.1)
+
+
+async def komut_isleyici(websocket):
+    """İstemciden gelen komutları işler."""
+    CONNECTED_CLIENTS.add(websocket)
+    print(f"Yeni İstemci Bağlandı: {len(CONNECTED_CLIENTS)} toplam.")
+
+    await guncel_yarismaci_listesini_yayinla()
+
+    try:
+        async for message in websocket:
+            data = json.loads(message)
+            action = data.get('action')
+            y_id = data.get('yarismaci_id')
+            isim = data.get('isim')
+            gate_name = data.get('gate')
+            cevap = ""
+
+            if action == 'ekle':
+                y_id = YARIS_YONETICISI.yarisci_ekle(isim)
+                cevap = f"Yarışçı {isim} ({y_id}) eklendi."
+
+            # YENİ: Mühürlü süreyi fonksiyona yolla
+            elif action == 'start_signal':
+                client_t = data.get('client_time')
+                cevap = YARIS_YONETICISI.sinyal_baslat(y_id, client_t)
+
+
+            elif action == 'start_signal_tur_2':
+                client_t = data.get('client_time')
+                cevap = YARIS_YONETICISI.sinyal_baslat_tur_2(y_id, client_t)
+
+
+            elif action == 'lap_signal':
+                client_t = data.get('client_time')
+                cevap = YARIS_YONETICISI.sinyal_kaydet(y_id, gate_name, client_t)
+
+            elif action == 'finish_signal':
+                client_t = data.get('client_time')
+                cevap = YARIS_YONETICISI.sinyal_kaydet(y_id, "Bitiş", client_t)
+
+            elif action == 'reset_all':
+                cevap = YARIS_YONETICISI.sifirla_hepsi()
+
+                # Eğer telefondan yarışmacı seçilirse, bunu TV ekranlarına (bilgisayara) bildir:
+            elif action == 'sync_racer':
+                sync_mesaj = json.dumps({
+                    "action": "sync_racer",
+                    "id": data.get("id")
+                })
+                if CONNECTED_CLIENTS:
+                    await asyncio.gather(*[client.send(sync_mesaj) for client in CONNECTED_CLIENTS], return_exceptions=True)
+
+                    # Telefondaki "Dönüş" butonunun çubuk verisini TV ekranlarına (bilgisayara/iPad'e) yansıt:
+            elif action == 'sync_bar':
+                sync_mesaj = json.dumps({
+                    "tip": "sync_bar",
+                    "p": data.get("p"),
+                    "c": data.get("c"),
+                    "t": data.get("t"),
+                    "r": data.get("r")
+                })
+                if CONNECTED_CLIENTS:
+                    await asyncio.gather(*[client.send(sync_mesaj) for client in CONNECTED_CLIENTS], return_exceptions=True)
+
+            # Telefondaki "Combo/Seri" verisini TV ekranına yansıt:
+            elif action == 'sync_streak':
+                sync_mesaj = json.dumps({
+                    "tip": "sync_streak",
+                    "t": data.get("t"),
+                    "val": data.get("val"),
+                    "sP": data.get("sP"),
+                    "eP": data.get("eP"),
+                    "r": data.get("r")
+                })
+                if CONNECTED_CLIENTS:
+                    await asyncio.gather(*[client.send(sync_mesaj) for client in CONNECTED_CLIENTS], return_exceptions=True)
+
+            else:
+                cevap = "Bilinmeyen komut."
+
+                # Eğer telefondan yarışmacı seçilirse, bunu TV ekranlarına (bilgisayara) bildir:
+
+            if action in ['ekle', 'start_signal', 'start_signal_tur_2', 'lap_signal', 'finish_signal', 'reset_all']:
+                await guncel_yarismaci_listesini_yayinla()
+
+            await websocket.send(json.dumps({"tip": "cevap", "mesaj": cevap}))
+
+    except websockets.exceptions.ConnectionClosedOK:
+        print("İstemci bağlantıyı kapattı.")
+    except Exception as e:
+        print(f"Hata oluştu: {e}")
+    finally:
+        CONNECTED_CLIENTS.remove(websocket)
+        print(f"İstemci bağlantısı kesildi. Kalan istemci: {len(CONNECTED_CLIENTS)}")
+
+
+# --- Sunucu Başlatma ---
+
+async def main():
+    """Ana sunucu görevlerini başlatır."""
+    print(f"WebSockets Sunucusu başlatılıyor: ws://{HOST}:{PORT}")
+
+    server_task = websockets.serve(komut_isleyici, HOST, PORT)
+    aktif_zaman_task = aktif_zamanlari_yayinla()
+
+    await asyncio.gather(server_task, aktif_zaman_task)
+
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\nSunucu kapatılıyor...")
+    except OSError as e:
+        if e.errno == 98 or e.errno == 48:
+            print(f"HATA: Port {PORT} zaten kullanılıyor.")
+        else:
+            raise
