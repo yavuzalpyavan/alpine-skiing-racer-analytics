@@ -34,3 +34,15 @@ Includes modular data aggregation structures that compile deep-dive statistics p
    ```bash
    git clone [https://github.com/YOUR_GITHUB_USERNAME/alpine-skiing-racer-analytics.git](https://github.com/YOUR_GITHUB_USERNAME/alpine-skiing-racer-analytics.git)
    cd alpine-skiing-racer-analytics
+
+Run the WebSocket Server:
+
+Bash
+python server/alpdisiplinibeta.py
+Launch the Interface:
+Open client/alpdisiplinibeta.html in any modern web browser. Click the 📺 TV MODU button to activate the automated overlay system.
+
+📊 Live System Previews
+TV Mode Graphics: Operates on an automated Chroma Key green background for direct broadcasting integration. Features dynamic pre-start cards, live target calculations, and high-performance scrolling split times.
+
+Automation Settings: Configurable micro-gate turning triggers allowing absolute layout synchronization with the actual physical course boundaries.
