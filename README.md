@@ -38,8 +38,11 @@ Includes modular data aggregation structures that compile deep-dive statistics p
 Run the WebSocket Server:
 
 Bash
+
 python server/alpdisiplinibeta.py
+
 Launch the Interface:
+
 Open client/alpdisiplinibeta.html in any modern web browser. Click the 📺 TV MODU button to activate the automated overlay system.
 
 📊 Live System Previews
