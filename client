@@ -1,1 +1,1399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alp Disiplini Kronometre - Pro Analytics</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; text-align: center; margin: 0; padding: 20px; background-color: #f4f4f4; display: flex; justify-content: center; }
 
+        /* --- SOL PANEL --- */
+        .track-container { width: 160px; height: 85vh; position: fixed; left: 10px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+        .track-line-wrapper { height: 80%; width: 40px; display: flex; justify-content: center; position: relative; }
+        .track-line { width: 16px; height: 100%; background: #e0e0e0; border-radius: 8px; position: absolute; top: 0; box-shadow: inset 2px 2px 5px rgba(0,0,0,0.1); overflow: hidden; z-index: 1; }
+        #trackSegments { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: transparent; }
+        .turn-indicator { width: 38px; height: 38px; background-color: #444; border: 4px solid white; border-radius: 50%; position: absolute; left: 50%; transform: translateX(-50%) translateY(-50%); top: 0%; transition: top 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.3s ease; box-shadow: 0 4px 8px rgba(0,0,0,0.5); z-index: 20; }
+        .turn-number-container { margin-top: 15px; text-align: center; }
+        .turn-number { font-size: 1.8em; font-weight: 900; color: #333; display: block; }
+        .turn-label { font-size: 0.9em; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* --- ANA İÇERİK --- */
+        .main-content { flex: 1; max-width: 900px; margin-left: 180px; }
+        .timer-display { font-size: 4em; margin: 10px 0; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -2px; color: #333; }
+        #liveDifference { font-size: 5em; font-weight: 900; margin-bottom: 0px; line-height: 1; }
+        .live-display-container { margin-bottom: 20px; padding: 10px; background: #fff; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); display: inline-block; min-width: 300px; }
+        .diff-negative { color: #009900; } .diff-positive { color: #cc0000; } .diff-zero { color: #ccc; } .neutral-diff { color: #333; font-weight: bold; }
+
+        button { font-size: 1em; padding: 12px 24px; margin: 5px; cursor: pointer; border: none; border-radius: 4px; background: #e0e0e0; transition: background 0.2s; touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+        button:hover { background: #d0d0d0; } button:active { transform: scale(0.98); }
+        .btn-start { background-color: #28a745; color: white; } .btn-gate { background-color: #17a2b8; color: white; } .btn-finish { background-color: #dc3545; color: white; }
+        .btn-turn { background-color: #ffc107; color: #000; font-weight: bold; border: 3px solid #e0a800; transform: scale(1.15); box-shadow: 0 4px 0 #c69500; }
+        .btn-turn:active { transform: scale(1.10); box-shadow: 0 2px 0 #c69500; position: relative; top: 2px; }
+
+        table { margin: 20px auto; border-collapse: collapse; width: 100%; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        th, td { border: 1px solid #eee; padding: 10px; text-align: center; } th { background-color: #f8f9fa; }
+        .negative-diff { color: green; font-weight: bold; } .positive-diff { color: red; font-weight: bold; }
+        .current-racer { background-color: #333; color: #fff; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 1.2em; }
+        .status-active { background-color: #007bff; } .status-done { background-color: #28a745; }
+        .config-area { margin-top: 50px; padding: 20px; border-top: 1px solid #ccc; font-size: 0.9em; color: #666; background: #f9f9f9; border-radius: 8px; }
+        .trigger-input { width: 50px; text-align: center; padding: 5px; margin: 0 5px; border: 1px solid #ccc; border-radius: 4px; }
+        .best-sector { background-color: #E1D5E7 !important; color: #6a1b9a !important; font-weight: 900 !important; border: 2px solid #9c27b0 !important; }
+        .sector-rank { font-size: 0.85em; color: #777; font-weight: normal; margin-left: 6px; display: inline-block; } .rank-first { color: #6a1b9a; font-weight: bold; }
+
+        #trackMarkers { position: absolute; width: 100%; height: 100%; top: 0; left: 0; pointer-events: none; z-index: 15; }
+        .gate-marker { position: absolute; width: 24px; height: 3px; background: rgba(0,0,0,0.5); left: 8px; z-index: 15; border-radius: 2px; }
+        .gate-label { position: absolute; left: 45px; font-size: 0.85em; font-weight: bold; color: #555; transform: translateY(-50%); }
+        .gate-delta { position: absolute; left: 65px; font-size: 0.9em; font-weight: 900; transform: translateY(-50%); background: #fff; padding: 2px 6px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.15); border-left: 4px solid #ccc; }
+        .sector-delta { position: absolute; left: 45px; font-size: 0.85em; font-weight: 900; transform: translateY(-50%); background: #fff; padding: 2px 6px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.15); border-left: 4px solid #ccc; opacity: 0; transition: opacity 0.5s ease; }
+
+        /* --- GİZLİ TV MODU TASARIMLARI --- */
+        body.tv-mode { background-color: #00ff00 !important; }
+        body.tv-mode .track-container, body.tv-mode .main-content { display: none !important; }
+        #tv-exit-btn { display: none; position: fixed; top: 20px; left: 20px; z-index: 10000; background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        body.tv-mode #tv-exit-btn { display: block; }
+
+        /* ANA BANT VE PRE-START KART (Sağ Alt) */
+        #tv-graphic-overlay { position: fixed; bottom: 40px; right: 40px; z-index: 9999; display: none; flex-direction: column; transform: translateX(150%); transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1); font-family: 'Helvetica Neue', Arial, sans-serif; align-items: flex-end; }
+        body.tv-mode #tv-graphic-overlay { display: flex; }
+        #tv-graphic-overlay.show { transform: translateX(0); }
+
+        .tv-pre-start-card { display: flex; flex-direction: column; background: rgba(30, 30, 30, 0.95); color: white; border-radius: 8px; padding: 15px 25px; margin-bottom: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 340px; border-top: 4px solid #e67e22; }
+        .tv-pre-start-header { display: flex; align-items: center; border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 10px; }
+        .tv-pre-start-bib { background: #e67e22; padding: 4px 10px; font-weight: 900; font-size: 1.4em; border-radius: 4px; margin-right: 15px; color:white; }
+        .tv-pre-start-name { font-weight: 800; font-size: 1.4em; text-transform: uppercase; letter-spacing: 1px; }
+        .tv-pre-start-flag { margin-left: auto; font-size: 1.8em; }
+        .tv-pre-start-info { display: flex; flex-direction: column; gap: 8px; font-size: 1.1em; font-weight: bold; color: #bbb; }
+        .tv-info-row { display: flex; justify-content: space-between; }
+        .tv-info-val { color: white; }
+        .tv-info-val.green { color: #2ecc71; } .tv-info-val.red { color: #e74c3c; }
+
+        .tv-live-banner-container { display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.3); position: relative; }
+        #tv-target-box { position: absolute; top: -32px; right: 0; background: #f1c40f; color: #000; padding: 4px 12px; font-weight: 900; font-size: 1.1em; border-top-left-radius: 4px; border-top-right-radius: 4px; opacity: 0; transition: opacity 0.3s; z-index: 0; white-space: nowrap; min-width: 150px; text-align: center; }
+        
+        .tv-inline-box { max-width: 0; opacity: 0; padding: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; white-space: nowrap; transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1); }
+        .tv-inline-box.show { max-width: 180px; opacity: 1; padding: 0 15px; }
+
+        /* TV YAN PANEL VE ÖZGÜR NOKTA */
+        #tv-sidebar { position: fixed; right: 40px; top: 15%; height: 60%; display: none; flex-direction: row; align-items: stretch; justify-content: flex-end; z-index: 9998; pointer-events: none; }
+        body.tv-mode #tv-sidebar.show { display: flex; }
+        
+        #tv-splits-container { position: relative; width: 250px; margin-right: 15px; z-index: 1; }
+        
+        #tv-track-wrapper { position: relative; width: 14px; height: 100%; z-index: 5; }
+        #tv-track-bar-container { position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.4); border-radius: 7px; box-shadow: inset 0 2px 5px rgba(0,0,0,0.6); overflow: hidden; z-index: 1; }
+        #tv-track-segments { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: transparent; }
+        
+        .tv-track-marker { position: absolute; width: 22px; height: 4px; background: #fff; left: -4px; z-index: 2; box-shadow: 0 0 3px rgba(0,0,0,0.8); border-radius: 2px; }
+        
+        #tv-bar-dot { position: absolute; width: 20px; height: 20px; background: #444; border: 3px solid #fff; border-radius: 50%; left: -6px; top: 0%; transform: translateY(-50%); z-index: 10; box-shadow: 0 0 10px rgba(0,0,0,0.5); transition: top 0.2s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.3s ease; }
+
+        .tv-split-row { position: absolute; right: 0; height: 35px; background: rgba(255,255,255,0.95); border-radius: 4px; display: flex; align-items: center; justify-content: flex-end; overflow: hidden; transform: translateX(120%); animation: slideDrawer 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        @keyframes slideDrawer { to { transform: translateX(0); } }
+        .tv-hex-rank { background: #2ecc71; color: white; width: 40px; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.1em; clip-path: polygon(0 0, 75% 0, 100% 50%, 75% 100%, 0 100%); }
+        .tv-split-time { padding: 0 15px; font-weight: 900; font-size: 1.4em; min-width: 80px; text-align: center; }
+
+        /* YENİ: COMBO (NABIZ + PARANTEZ) TASARIMI */
+        .tv-streak-bracket {
+            position: absolute;
+            right: 25px; /* Çubuğun hemen solu */
+            width: 15px;
+            border-left: 3px solid;
+            border-top: 3px solid;
+            border-bottom: 3px solid;
+            border-radius: 5px 0 0 5px;
+            opacity: 0;
+            transform: translateX(10px);
+            transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            z-index: 10;
+            box-shadow: -2px 0px 5px rgba(0,0,0,0.3);
+            box-sizing: border-box;
+        }
+        .tv-streak-bracket.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        .tv-streak-label {
+            position: absolute;
+            right: 18px; /* Parantezin solu */
+            top: 50%;
+            transform: translateY(-50%);
+            font-weight: 900;
+            font-size: 1.2em;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.7);
+            padding: 3px 8px;
+            border-radius: 4px;
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+
+    <button onclick="toggleTVMode()" style="position: absolute; top:10px; right:10px; background:#2980b9; color:white; border:none; padding:8px 15px; border-radius:5px; font-weight:bold; cursor:pointer; z-index:1000;">📺 TV MODU</button>
+    <button id="tv-exit-btn" onclick="toggleTVMode()">❌ TV MODUNDAN ÇIK</button>
+
+    <div id="tv-sidebar">
+        <div id="tv-splits-container"></div>
+        <div id="tv-track-wrapper">
+            <div id="tv-track-bar-container">
+                <div id="tv-track-segments"></div>
+            </div>
+            <div id="tv-marker-k1" class="tv-track-marker" style="display:none;"></div>
+            <div id="tv-marker-k2" class="tv-track-marker" style="display:none;"></div>
+            <div id="tv-bar-dot" style="opacity: 0;"></div>
+        </div>
+    </div>
+
+    <div id="tv-graphic-overlay">
+        <div id="tv-pre-start-card" class="tv-pre-start-card" style="display:none;">
+            <div class="tv-pre-start-header">
+                <div id="tv-pre-bib" class="tv-pre-start-bib">--</div>
+                <div id="tv-pre-name" class="tv-pre-start-name">BEKLENİYOR</div>
+                <div id="tv-pre-flag" class="tv-pre-start-flag"></div>
+            </div>
+            <div id="tv-pre-info" class="tv-pre-start-info"></div>
+        </div>
+
+        <div id="tv-live-banner" class="tv-live-banner-container" style="display:none;">
+            <div id="tv-target-box">HEDEF: --:--.--</div>
+            
+            <div style="display: flex; height: 32px; background: linear-gradient(90deg, #333333, #1a1a1a); color: white; align-items: center; border-top-left-radius: 4px; border-top-right-radius: 4px; overflow: hidden; z-index: 1;">
+                <div id="tv-bib" style="background-color: #e67e22; color: white; font-weight: 900; font-size: 1.05em; padding: 0 12px; height: 100%; display: flex; align-items: center; justify-content: center;">--</div>
+                <div id="tv-flag" style="padding: 0 5px 0 10px; font-size: 1.2em;"></div>
+                <div id="tv-name" style="font-weight: 800; font-size: 1.15em; padding: 0 10px 0 5px; text-transform: uppercase; letter-spacing: 1px; white-space: nowrap;">BEKLENİYOR...</div>
+            </div>
+            
+            <div style="display: flex; height: 40px; background-color: rgba(255, 255, 255, 0.95); border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; overflow: hidden; z-index: 1;">
+                <div id="tv-clock" style="color: #111; font-family: 'Courier New', monospace; font-weight: 900; font-size: 1.8em; padding: 0 15px; display: flex; align-items: center; justify-content: center; min-width: 120px;">00:00.00</div>
+                <div id="tv-inline-diff" class="tv-inline-box" style="color: white; font-weight: 900; font-size: 1.4em;"></div>
+                <div id="tv-inline-rank-1" class="tv-inline-box" style="background: #333; color: white; font-weight: 900; font-size: 1.1em;"></div>
+                <div id="tv-inline-rank-2" class="tv-inline-box" style="background: #007bff; color: white; font-weight: 900; font-size: 1.1em;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="track-container">
+        <div id="modeDisplay">MOD: HAZIR</div>
+        <div class="track-line-wrapper">
+            <div id="trackMarkers"></div> 
+            <div class="track-line"><div id="trackSegments"></div></div>
+            <div id="turnIndicator" class="turn-indicator"><div id="deltaBubble" class="delta-bubble" style="display:none;"></div></div>
+        </div>
+        <div class="turn-number-container"><span id="turnNumberDisplay" class="turn-number">0</span><span class="turn-label">DÖNÜŞ</span></div>
+    </div>
+
+    <div class="main-content">
+        <h1>Alp Disiplini Kronometre</h1>
+        <div style="margin-bottom: 20px; display:flex; justify-content:center; gap:10px;">
+            <input type="text" id="newRacerName" placeholder="Örn: M. Shiffrin (USA)" style="padding:10px; width: 200px;">
+            <button onclick="addRacer()">Yarışmacı Ekle</button>
+            <button onclick="resetAll(this)" style="background:#666; color:white; transition: 0.3s;">Reset</button>
+        </div>
+        <hr>
+        <div id="controlPanel">
+            <select id="racerSelect" class="racer-select" style="padding:10px; font-size:1.1em;"></select>
+            <br><br>
+            <button class="btn-start" onpointerdown="sendStartSignal(1)">1. Tur Başlat</button>
+            <button class="btn-turn" id="btnTurn" onpointerdown="recordTurn()">DÖNÜŞ (TURN)</button>
+            <div style="margin-top:10px; font-size:0.8em; color:gray;">Manuel Kontroller</div>
+            <button class="btn-gate" onpointerdown="sendSignal('Kapı 1')" style="padding: 8px 16px; font-size:0.9em;">Kapı 1</button>
+            <button class="btn-gate" onpointerdown="sendSignal('Kapı 2')" style="padding: 8px 16px; font-size:0.9em;">Kapı 2</button>
+            <button class="btn-finish" onpointerdown="sendFinishSignal()" style="padding: 8px 16px; font-size:0.9em;">Bitiş</button>
+            <br><br>
+            <button class="btn-start" style="background:#6f42c1;" onpointerdown="sendStartSignal(2)">2. Tur Başlat</button>
+        </div>
+        <div class="current-racer" id="currentRacerInfo">Seçili Yarışmacı: ---</div>
+        <div class="live-display-container">
+            <div class="timer-display" id="currentTimer">00:00.00</div>
+            <div id="mainRankDisplay" style="margin-top:5px; height:40px;"></div>
+            <div id="liveDifference" class="diff-zero">---</div> 
+            <div id="referenceLabel" style="font-size: 1.2em; color: gray; font-weight:bold;"></div>
+        </div>
+        <div id="currentTimes"></div>
+        <div style="display:flex; gap:20px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:300px;">
+                <h2>1. Tur</h2>
+                <table><thead><tr><th>Sıra</th><th>No</th><th>İsim</th><th>Süre</th></tr></thead><tbody id="leaderboard1"></tbody></table>
+            </div>
+            <div style="flex:1; min-width:300px;">
+                <h2>2. Tur</h2>
+                <table><thead><tr><th>Sıra</th><th>No</th><th>İsim</th><th>Toplam</th><th>Fark</th></tr></thead><tbody id="leaderboard2"></tbody></table>
+            </div>
+        </div>
+        <h2>2. Tur Sıralaması</h2>
+        <table style="width:50%;"><thead><tr><th>No</th><th>İsim</th><th>1. Tur</th></tr></thead><tbody id="secondRoundQueue"></tbody></table>
+
+        <div class="config-area">
+            <h3>Otomasyon Ayarları</h3>
+            <div style="display:flex; justify-content:center; align-items:center; gap:15px; flex-wrap:wrap;">
+                <label>Kapı 1: <input type="number" id="gate1Trigger" class="trigger-input" value="10">. Dönüş</label>
+                <label>Kapı 2: <input type="number" id="gate2Trigger" class="trigger-input" value="20">. Dönüş</label>
+                <label>Bitiş: <input type="number" id="finishTrigger" class="trigger-input" value="40">. Dönüş</label>
+                <label>(Bar: <input type="number" id="totalTurnsInput" class="trigger-input" value="40">)</label>
+            </div>
+            <br>
+            <button onclick="setLastRunAsReference(this)" style="background:#2ecc71; color:white; font-weight:bold; transition: 0.3s;">🏁 SON YARIŞÇIYI REFERANS YAP</button>
+            <button onclick="resetReferenceData(this)" style="background:#e67e22; color:white; transition: 0.3s;">Referans Verisini SİL</button>
+            <button onclick="downloadResultsCSV()" style="background:#27ae60; color:white; padding: 10px 15px; font-weight:bold; border-radius:5px; margin-top:10px; border:none; cursor:pointer; width:100%;">
+    📊 GÜNÜN SONUÇLARINI İNDİR (EXCEL/CSV)
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const WS_URL = "ws://192.168.1.48:8765"; // LÜTFEN IP'Yİ KONTROL ET
+        let socket;
+        let allRacers = {};
+        let activeRacerId = null;
+
+        let animationFrameId;
+        let localStartTimeRef = 0;
+        let isTimerRunning = false;
+        let lastServerDiff = "---"; 
+        let lastServerDiffVal = 0.0;
+        let lastServerRef = "";     
+
+        let currentTurnCount = 0;
+        let totalTurns = 40; 
+        let referenceTurnTimes = []; 
+        let currentRunTurnTimes = [];
+        let lastGapToLeader = 0.0;
+        let turnColors = [];
+
+        let tvTurnColors = [];
+        let referenceRun1TimeMs = 0;
+
+        let gate1Turn = 10;
+        let gate2Turn = 20;
+        let finishTurn = 40;
+
+        window.globalTvOverallRank = "-";
+        window.globalTvRun2Rank = "-";
+
+        // YENİ: COMBO (STREAK) HAFIZASI
+        let streakType = 'none'; 
+        let streakCount = 0;
+        let streakStartTurn = 0;
+        let streakStartGap = 0.0;
+
+        function connectWebSocket() {
+            socket = new WebSocket(WS_URL);
+            socket.onopen = () => console.log("Sunucuya bağlandı.");
+            socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                
+                if (data.action === 'sync_racer' && data.id) {
+                    if (activeRacerId !== data.id) {
+                        activeRacerId = data.id;
+                        const selectEl = document.getElementById('racerSelect');
+                        if (selectEl) selectEl.value = activeRacerId;
+                        stopSmoothTimer(); resetTurnBar(); updateSelectedRacerInfo();
+                    }
+                }
+
+                if (data.tip === 'sync_bar') {
+                    if (activeRacerId === data.r) {
+                        tvTurnColors.push(data.c);
+                        updateTVTrackGradient();
+                        let dot = document.getElementById('tv-bar-dot');
+                        if (dot) {
+                            dot.style.top = data.p + '%';
+                            dot.style.opacity = '1';
+                            dot.style.backgroundColor = data.c; 
+                        }
+                    }
+                }
+
+                // YENİ: COMBO (SERİ) SİNYALİ GELDİĞİNDE
+                if (data.tip === 'sync_streak') {
+                    if (activeRacerId === data.r) {
+                        showStreakBracket(data.t, data.val, data.sP, data.eP);
+                    }
+                }
+                
+                if (data.tip === 'yarismaci_listesi_guncelleme') {
+                    updateRacerList(data.yarismacilar);
+                    updateLeaderboards(data.yarismacilar, data.ikinci_tur_sirasi);
+                    
+                    const activeRacer = data.yarismacilar.find(r => r.id === activeRacerId);
+                    if (!activeRacer || activeRacer.durum !== 'AKTIF') {
+                        stopSmoothTimer();
+                        if(activeRacer) updateSelectedRacerInfo(); 
+                    } 
+                } else if (data.tip === 'coklu_zaman_guncelleme') {
+                    syncTimerWithServer(data.aktif_yarismacilar);
+                }
+            };
+            socket.onclose = () => setTimeout(connectWebSocket, 5000);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            connectWebSocket();
+            document.getElementById('totalTurnsInput').addEventListener('change', (e) => { totalTurns = parseInt(e.target.value) || 40; drawTrackMarkers(); });
+            document.getElementById('gate1Trigger').addEventListener('change', (e) => { gate1Turn = parseInt(e.target.value); drawTrackMarkers(); });
+            document.getElementById('gate2Trigger').addEventListener('change', (e) => { gate2Turn = parseInt(e.target.value); drawTrackMarkers(); });
+            document.getElementById('finishTrigger').addEventListener('change', (e) => {
+                finishTurn = parseInt(e.target.value);
+                document.getElementById('totalTurnsInput').value = finishTurn;
+                totalTurns = finishTurn;
+                drawTrackMarkers();
+            });
+            updateModeDisplay();
+            drawTrackMarkers(); 
+        });
+
+        function drawTrackMarkers() {
+            const container = document.getElementById('trackMarkers');
+            if(!container) return;
+            container.innerHTML = ''; 
+            const p1 = (gate1Turn / totalTurns) * 100; const p2 = (gate2Turn / totalTurns) * 100; const p01 = p1 / 2;
+            container.innerHTML += `<div id="marker-sector-01" class="sector-delta" style="top: ${p01}%;"></div>`;
+            container.innerHTML += `<div class="gate-marker" style="top: ${p1}%;"></div><div class="gate-label" style="top: ${p1}%;">K1</div><div id="marker-delta-k1" class="gate-delta" style="top: ${p1}%; display:none;"></div>`;
+            const p12 = (p1 + p2) / 2;
+            container.innerHTML += `<div id="marker-sector-12" class="sector-delta" style="top: ${p12}%;"></div>`;
+            container.innerHTML += `<div class="gate-marker" style="top: ${p2}%;"></div><div class="gate-label" style="top: ${p2}%;">K2</div><div id="marker-delta-k2" class="gate-delta" style="top: ${p2}%; display:none;"></div>`;
+
+            let tvK1 = document.getElementById('tv-marker-k1');
+            let tvK2 = document.getElementById('tv-marker-k2');
+            if(tvK1) { tvK1.style.top = p1 + '%'; tvK1.style.display = 'block'; }
+            if(tvK2) { tvK2.style.top = p2 + '%'; tvK2.style.display = 'block'; }
+        }
+
+        function getTurnColor(delta) {
+            if (delta <= -0.07) return "#1B4C00"; if (delta <= -0.06) return "#3EAD01"; if (delta <= -0.05) return "#47C700";
+            if (delta <= -0.04) return "#5BFF00"; if (delta <= -0.03) return "#9BFF00"; if (delta <= -0.01) return "#C7FF00"; 
+            if (Math.abs(delta) < 0.005) return "#FFFF00"; 
+            if (delta <= 0.025) return "#FFED00"; if (delta <= 0.035) return "#FFD900"; if (delta <= 0.045) return "#FFA900"; 
+            if (delta <= 0.055) return "#FF6000"; if (delta <= 0.065) return "#FF0000"; if (delta <= 0.075) return "#BD0000"; 
+            return "#800000"; 
+        }
+
+        function updateTrackGradient() {
+            const trackSegments = document.getElementById('trackSegments');
+            const count = turnColors.length;
+            if (count === 0) { trackSegments.style.background = 'transparent'; return; }
+            const smoothness = 0.5; let gradientStr = 'linear-gradient(to bottom, ';
+            turnColors.forEach((color, index) => {
+                let idealStart = (index / totalTurns) * 100; let idealEnd = ((index + 1) / totalTurns) * 100;
+                let drawStart = (index === 0) ? idealStart : idealStart + smoothness; let drawEnd = idealEnd - smoothness;
+                gradientStr += `${color} ${drawStart}%, ${color} ${drawEnd}%`;
+                if (index < count - 1) gradientStr += ', ';
+            });
+            let filledPct = (count / totalTurns) * 100;
+            if (filledPct < 100) { gradientStr += `, transparent ${filledPct + smoothness}%, transparent 100%`; }
+            gradientStr += ')'; trackSegments.style.background = gradientStr;
+        }
+
+        function updateTVTrackGradient() {
+            const trackSegments = document.getElementById('tv-track-segments');
+            if (!trackSegments) return;
+            const count = tvTurnColors.length;
+            if (count === 0) { trackSegments.style.background = 'transparent'; return; }
+            const smoothness = 0.5; let gradientStr = 'linear-gradient(to bottom, ';
+            tvTurnColors.forEach((color, index) => {
+                let idealStart = (index / totalTurns) * 100; let idealEnd = ((index + 1) / totalTurns) * 100;
+                let drawStart = (index === 0) ? idealStart : idealStart + smoothness; let drawEnd = idealEnd - smoothness;
+                gradientStr += `${color} ${drawStart}%, ${color} ${drawEnd}%`;
+                if (index < count - 1) gradientStr += ', ';
+            });
+            let filledPct = (count / totalTurns) * 100;
+            if (filledPct < 100) { gradientStr += `, transparent ${filledPct + smoothness}%, transparent 100%`; }
+            gradientStr += ')'; trackSegments.style.background = gradientStr;
+        }
+
+       function recordTurn() {
+            if (!isTimerRunning) return;
+            currentTurnCount++; if (currentTurnCount === 1) window.recentDeltas = [];
+
+            if (currentTurnCount === gate1Turn) sendSignal('Kapı 1');
+            else if (currentTurnCount === gate2Turn) sendSignal('Kapı 2');
+            else if (currentTurnCount === finishTurn) sendFinishSignal();
+
+            const currentRunTimeMs = Date.now() - localStartTimeRef;
+            currentRunTurnTimes.push(currentRunTimeMs);
+            const turnIndex = currentTurnCount - 1; let deltaOfDelta = 0.0; let totalGap = 0.0; let isReferenceRun = false;
+
+            if (referenceTurnTimes.length <= turnIndex) { isReferenceRun = true; } 
+            else { 
+                isReferenceRun = false; 
+                const leaderTimeMs = referenceTurnTimes[turnIndex]; 
+                totalGap = (currentRunTimeMs - leaderTimeMs) / 1000.0; 
+                deltaOfDelta = totalGap - lastGapToLeader; 
+                lastGapToLeader = totalGap; 
+            }
+
+            const indicator = document.getElementById('turnIndicator'); const turnNum = document.getElementById('turnNumberDisplay');
+            let percentage = (currentTurnCount / totalTurns) * 100; if (percentage > 100) percentage = 100;
+            indicator.style.top = percentage + "%";
+
+            let finalColor = "#eeeeee";
+            let avgDelta = 0;
+            if (isReferenceRun) { 
+                indicator.style.backgroundColor = "#fff"; turnColors.push("#eeeeee"); 
+            } else {
+                window.recentDeltas.push(deltaOfDelta);
+                if (window.recentDeltas.length > 3) window.recentDeltas.shift(); 
+                avgDelta = Math.round(window.recentDeltas.reduce((a, b) => a + b, 0) / window.recentDeltas.length * 100) / 100;
+                finalColor = getTurnColor(avgDelta); 
+                indicator.style.backgroundColor = finalColor; turnColors.push(finalColor);
+            }
+            updateTrackGradient(); turnNum.textContent = currentTurnCount;
+
+            let tvDot = document.getElementById('tv-bar-dot');
+            if(tvDot) { tvDot.style.top = percentage + '%'; tvDot.style.backgroundColor = finalColor; }
+
+            sendMessage('sync_bar', { p: percentage, c: finalColor, t: currentTurnCount, r: activeRacerId });
+
+            // --- YENİ: COMBO (NABIZ + PARANTEZ) ALGORİTMASI ---
+            if (!isReferenceRun) {
+                let currentType = 'none';
+                if (avgDelta <= -0.06) currentType = 'gain';
+                else if (avgDelta >= 0.06) currentType = 'loss';
+
+                let currentGap = totalGap;
+
+                if (currentType === streakType && currentType !== 'none') {
+                    streakCount++;
+                    // Nabız: Her 3 dönüşte bir (3, 6, 9...) ekrana SADECE son 3 dönüşlük parantezi yansıt!
+                    if (streakCount >= 3 && streakCount % 3 === 0) {
+                        
+                        // DÜZELTME 1: Formül düzeltildi (Artık o 3 dönüşün net farkını eksiksiz alıyor)
+                        let diff = currentGap - streakStartGap; 
+                        
+                        let startPct = ((currentTurnCount - 3) / totalTurns) * 100; 
+                        let endPct = (currentTurnCount / totalTurns) * 100;
+                        sendMessage('sync_streak', { t: streakType, val: diff.toFixed(2), sP: startPct, eP: endPct, r: activeRacerId });
+                        
+                        // DÜZELTME 2: Dilimleme Mantığı! Sonraki 3'lü hesaplama için başlangıç noktasını "şu an" olarak güncelle
+                        streakStartGap = currentGap;
+                    }
+                } else {
+                    // Seri kırıldı
+                    streakType = currentType;
+                    if (currentType !== 'none') {
+                        streakCount = 1;
+                        streakStartTurn = currentTurnCount;
+                        streakStartGap = currentGap - deltaOfDelta; 
+                    } else {
+                        streakCount = 0;
+                    }
+                }
+            }
+        }
+
+        function resetTurnBar(forceTurn = null) {
+            currentTurnCount = 0; 
+            currentRunTurnTimes = []; 
+            turnColors = []; 
+            
+            // Streak Sıfırlaması
+            streakType = 'none';
+            streakCount = 0;
+            streakStartTurn = 0;
+            streakStartGap = 0.0;
+
+            let startingGap = 0.0;
+            let r = allRacers[activeRacerId];
+            
+            // YENİ: Sunucudan cevabı beklemeden, bizim butondan gönderdiğimiz turu zorla kabul et!
+            let currentTurn = forceTurn || (r ? parseInt(r.aktif_tur) : 1);
+
+            if (r && currentTurn === 2 && referenceTurnTimes.length > 0 && typeof referenceRun1TimeMs !== 'undefined' && referenceRun1TimeMs > 0) {
+                let myRun1 = Math.round(parseTimeStr(r.tablo_1_bilgi?.sure) * 100);
+                if (myRun1 < 99999999) {
+                    startingGap = (myRun1 - Math.round(referenceRun1TimeMs * 100)) / 100.0;
+                }
+            }
+            lastGapToLeader = startingGap;
+            
+            const indicator = document.getElementById('turnIndicator'); const bubble = document.getElementById('deltaBubble');
+            indicator.style.top = "0%"; indicator.style.backgroundColor = "#444";
+            document.getElementById('turnNumberDisplay').textContent = "0"; if(bubble) bubble.style.opacity = "0";
+            updateTrackGradient(); 
+
+            let tvDot = document.getElementById('tv-bar-dot');
+            if(tvDot) { tvDot.style.top = '0%'; tvDot.style.opacity = '0'; tvDot.style.backgroundColor = '#444'; }
+        }
+
+        let refConfirmTimeout;
+        function setLastRunAsReference(btn) {
+            if (currentRunTurnTimes.length === 0) { const oldText = btn.textContent; btn.textContent = "⚠️ VERİ YOK!"; btn.style.backgroundColor = "#e74c3c"; setTimeout(() => { btn.textContent = oldText; btn.style.backgroundColor = "#2ecc71"; }, 2000); return; }
+            if (btn.dataset.confirming === "true") {
+                referenceTurnTimes = [...currentRunTurnTimes]; 
+                
+                let r = allRacers[activeRacerId];
+                if (r && parseInt(r.aktif_tur) === 2 && r.tablo_1_bilgi && r.tablo_1_bilgi.sure && r.tablo_1_bilgi.sure !== '---') {
+                    referenceRun1TimeMs = parseTimeStr(r.tablo_1_bilgi.sure);
+                } else {
+                    referenceRun1TimeMs = 0;
+                }
+                
+                updateModeDisplay(); clearTimeout(refConfirmTimeout);
+                btn.dataset.confirming = "false"; btn.textContent = "✅ REFERANS GÜNCELLENDİ!"; btn.style.backgroundColor = "#28a745";
+                setTimeout(() => { btn.textContent = "🏁 SON YARIŞÇIYI REFERANS YAP"; btn.style.backgroundColor = "#2ecc71"; }, 2000);
+            } else {
+                btn.dataset.confirming = "true"; btn.textContent = "EMİN MİSİN? (ONAY İÇİN TEKRAR BAS)"; btn.style.backgroundColor = "#e74c3c";
+                refConfirmTimeout = setTimeout(() => { btn.dataset.confirming = "false"; btn.textContent = "🏁 SON YARIŞÇIYI REFERANS YAP"; btn.style.backgroundColor = "#2ecc71"; }, 3000);
+            }
+        }
+
+        let delRefTimeout;
+        function resetReferenceData(btn) {
+            if (btn.dataset.confirming === "true") {
+                referenceTurnTimes = []; currentRunTurnTimes = []; referenceRun1TimeMs = 0; resetTurnBar(); updateModeDisplay(); clearTimeout(delRefTimeout);
+                btn.dataset.confirming = "false"; btn.textContent = "✅ SİLİNDİ!"; btn.style.backgroundColor = "#28a745";
+                setTimeout(() => { btn.textContent = "Referans Verisini SİL"; btn.style.backgroundColor = "#e67e22"; }, 2000);
+            } else {
+                btn.dataset.confirming = "true"; btn.textContent = "SİLİNECEK! ONAY İÇİN TEKRAR BAS"; btn.style.backgroundColor = "#dc3545";
+                delRefTimeout = setTimeout(() => { btn.dataset.confirming = "false"; btn.textContent = "Referans Verisini SİL"; btn.style.backgroundColor = "#e67e22"; }, 3000);
+            }
+        }
+        
+        let resetAllTimeout;
+        function resetAll(btn) {
+            if (btn.dataset.confirming === "true") {
+                sendMessage('reset_all'); clearTimeout(resetAllTimeout); btn.dataset.confirming = "false";
+                btn.textContent = "✅ RESETLENDİ"; btn.style.backgroundColor = "#28a745";
+                setTimeout(() => { btn.textContent = "Reset"; btn.style.backgroundColor = "#666"; }, 2000);
+            } else {
+                btn.dataset.confirming = "true"; const oldText = btn.textContent; btn.textContent = "EMİN MİSİN? (TEKRAR)"; btn.style.backgroundColor = "#dc3545";
+                resetAllTimeout = setTimeout(() => { btn.dataset.confirming = "false"; btn.textContent = oldText; btn.style.backgroundColor = "#666"; }, 3000);
+            }
+        }
+        
+        function updateModeDisplay() {
+            const disp = document.getElementById('modeDisplay');
+            if (referenceTurnTimes.length === 0) { disp.textContent = "MOD: REFERANS (İlk Kayıt)"; disp.style.color = "#e67e22"; } 
+            else { disp.textContent = "MOD: KARŞILAŞTIRMA"; disp.style.color = "#28a745"; }
+        }
+
+        function syncTimerWithServer(activeRacers) {
+            const currentRacerData = activeRacers.find(r => r.id === activeRacerId);
+            if (currentRacerData) {
+                let serverDiffStr = currentRacerData.anlik_fark_str;
+                let serverDiffVal = parseFloat(serverDiffStr.replace('+', ''));
+                if(isNaN(serverDiffVal)) serverDiffVal = 0.0;
+                
+                // --- YENİ: AĞ GECİKMESİ TELAFİSİ (LATENCY COMPENSATION) ---
+                // Python'ın saati Wi-Fi gecikmesi kadar (yaklaşık 250-300ms) geriden gelir.
+                // Bu yüzden Python'ın hesapladığı canlı fark, sporcuyu 300ms daha hızlı (önde) sanır.
+                // Burada o gecikmeyi milisaniyesine kadar hesaplayıp, ekrandaki canlı farkı anında düzeltiyoruz.
+                let refLabel = currentRacerData.referans_etiket;
+                if (isTimerRunning && (refLabel === 'Kapı 1' || refLabel === 'Kapı 2')) {
+                    const localElapsedSec = (Date.now() - localStartTimeRef) / 1000.0;
+                    const serverElapsedSec = currentRacerData.ham_saniye;
+                    const lagSec = localElapsedSec - serverElapsedSec; // Gecikmeyi bul
+                    
+                    if (lagSec > 0.05 && lagSec < 2.0) { // Gecikme mantıklı sınırlardaysa (50ms - 2sn) düzelt
+                        serverDiffVal += lagSec;
+                        serverDiffStr = (serverDiffVal > 0 ? '+' : '') + serverDiffVal.toFixed(2);
+                    }
+                }
+                // ------------------------------------------------------------
+
+                lastServerDiff = serverDiffStr;
+                lastServerRef = refLabel;
+                updateLiveDiffDisplay();
+
+                if (!isTimerRunning) { 
+                    const now = Date.now();
+                    const serverElapsedMs = currentRacerData.ham_saniye * 1000;
+                    localStartTimeRef = now - serverElapsedMs;
+                    resetTurnBar(); 
+                    startSmoothTimer(); 
+                }
+            }
+        }
+
+        function startSmoothTimer() {
+            if (isTimerRunning) return;
+            isTimerRunning = true;
+            function loop() {
+                if (!isTimerRunning) return;
+                const now = Date.now();
+                const elapsedMs = now - localStartTimeRef;
+                document.getElementById('currentTimer').textContent = formatMsToTime(elapsedMs);
+                animationFrameId = requestAnimationFrame(loop);
+            }
+            loop();
+        }
+
+        function stopSmoothTimer() { isTimerRunning = false; cancelAnimationFrame(animationFrameId); }
+
+        function formatMsToTime(ms) {
+            if (ms < 0) ms = 0;
+            const totalCentiseconds = Math.floor(ms / 10);
+            const cs = totalCentiseconds % 100;
+            const s = Math.floor(totalCentiseconds / 100) % 60;
+            const m = Math.floor(totalCentiseconds / 100 / 60);
+            return `${pad(m)}:${pad(s)}.${pad(cs)}`;
+        }
+        function pad(n) { return n.toString().padStart(2, '0'); }
+        
+        function updateLiveDiffDisplay() {
+             const liveEl = document.getElementById('liveDifference');
+             const refEl = document.getElementById('referenceLabel');
+             let diffClass;
+             if (lastServerDiff.startsWith('-')) diffClass = 'diff-negative';
+             else if (lastServerDiff === '0.00' || lastServerDiff === '+0.00' || lastServerDiff === '---') diffClass = 'diff-zero';
+             else diffClass = 'diff-positive';
+             liveEl.className = diffClass; liveEl.textContent = lastServerDiff;
+             refEl.textContent = lastServerRef === "BAŞLANGIÇ" ? "BAŞLANGIÇ" : (lastServerRef ? `REF: ${lastServerRef}` : "");
+        }
+        
+        function updateRacerList(racers) {
+            const select = document.getElementById('racerSelect');
+            const activeRunner = racers.find(r => r.durum === 'AKTIF');
+            const forceSelectId = activeRunner ? activeRunner.id : null;
+            const currentSelectedId = forceSelectId || activeRacerId || select.value;
+            
+            select.innerHTML = ''; allRacers = {};
+            racers.forEach(r => {
+                allRacers[r.id] = r;
+                const opt = document.createElement('option');
+                opt.value = r.id; opt.textContent = `#${r.numara} - ${r.isim} (${r.durum})`;
+                select.appendChild(opt);
+            });
+            
+            if (currentSelectedId && activeRacerId !== currentSelectedId) {
+                activeRacerId = currentSelectedId;
+                select.value = activeRacerId;
+                stopSmoothTimer(); resetTurnBar(); updateSelectedRacerInfo();
+            } else if (allRacers[currentSelectedId]) {
+                select.value = currentSelectedId;
+                activeRacerId = currentSelectedId;
+            } else if (racers.length > 0 && !activeRacerId) {
+                activeRacerId = racers[racers.length-1].id;
+                select.value = activeRacerId;
+            } else if (racers.length === 0) {
+                activeRacerId = null;
+            }
+            
+            updateSelectedRacerInfo();
+        }
+        
+        document.getElementById('racerSelect').addEventListener('change', (e) => {
+            activeRacerId = e.target.value; 
+            sendMessage('sync_racer', {id: activeRacerId}); 
+            stopSmoothTimer(); resetTurnBar(); updateSelectedRacerInfo();
+        });
+
+        function parseTimeStr(timeStr) {
+            if (!timeStr || timeStr === '---' || timeStr === '00:00.00') return 99999999; 
+            const parts = timeStr.split(':');
+            let val;
+            if (parts.length === 2) { val = (parseFloat(parts[0]) * 60) + parseFloat(parts[1]); }
+            else { val = parseFloat(timeStr); }
+            if (isNaN(val)) return 99999999;
+            return Math.round(val * 100) / 100;
+        }
+
+        function updateSelectedRacerInfo() {
+            const infoDiv = document.getElementById('currentRacerInfo');
+            const timesDiv = document.getElementById('currentTimes');
+            const timerEl = document.getElementById('currentTimer');
+            const rankDisplay = document.getElementById('mainRankDisplay'); 
+            const racer = allRacers[activeRacerId];
+            
+            if(rankDisplay) rankDisplay.innerHTML = '';
+            if (!racer) { infoDiv.textContent = "Seçili Yarışmacı: ---"; timesDiv.innerHTML = ''; return; }
+            
+            let displayTurn = parseInt(racer.aktif_tur);
+            if (racer.durum === 'TAMAMLANDI') {
+                const hasTurn2Time = racer.tablo_2_bilgi.sure && racer.tablo_2_bilgi.sure !== '---' && racer.tablo_2_bilgi.sure !== '00:00.00';
+                if (!hasTurn2Time) displayTurn = 1; else displayTurn = 2;
+            }
+
+            infoDiv.textContent = `Seçili: #${racer.numara} ${racer.isim} | Durum: ${racer.durum} | Tur: ${racer.aktif_tur}`;
+            infoDiv.className = `current-racer status-${racer.durum.toLowerCase().replace('beklemede','wait').replace('tamamlandi','done').replace('hazir','ready').replace('aktif','active')}`;
+            
+            const sectorTimesMap = { 'Kapı 1': [], 'Kapı 2': [], 'Bitiş': [] };
+            Object.values(allRacers).forEach(r => {
+                r.kayitlar.forEach(rec => {
+                    if (parseInt(rec.tur) === displayTurn) {
+                        if (rec.etiket && rec.sektor_sure) {
+                            let key = rec.etiket; 
+                            if (!sectorTimesMap[key]) sectorTimesMap[key] = [];
+                            sectorTimesMap[key].push(Math.round(parseTimeStr(rec.sektor_sure) * 100)); // Santisaniye bazında kaydet
+                        }
+                    }
+                });
+            });
+            for (let key in sectorTimesMap) { sectorTimesMap[key].sort((a, b) => a - b); }
+
+            timesDiv.innerHTML = '<h3>Performans Analizi</h3>';
+            let html = `<table style="width:100%;font-size:0.9em;"><tr style="background:#eee;"><th>Nokta</th><th>Süre</th><th>Fark</th><th>Sektör</th><th>S.Fark</th></tr>`;
+            const myRecs = racer.kayitlar.filter(r => parseInt(r.tur) === displayTurn);
+            const getDiffClass = (valStr) => {
+                if (!valStr || valStr === '---') return '';
+                const val = parseFloat(valStr.replace('+', ''));
+                if (val === 0) return 'neutral-diff'; return valStr.startsWith('-') ? 'negative-diff' : 'positive-diff'; 
+            };
+            
+            ['Kapı 1','Kapı 2','Bitiş'].forEach(g => {
+                const r = myRecs.find(x => x.etiket === g);
+                if(r) {
+                    let lbl = r.etiket === 'Bitiş' ? (displayTurn===1?'1. Tur Bitiş':'2. Tur Bitiş') : r.etiket;
+                    const c1 = getDiffClass(r.fark); const c2 = getDiffClass(r.sektor_fark);
+                    let sectorClass = ''; let rankDisplayHTML = '';
+                    if (r.sektor_sure) {
+                        const myTimeVal = Math.round(parseTimeStr(r.sektor_sure) * 100);
+                        const timesArr = sectorTimesMap[r.etiket] || [];
+                        const rank = timesArr.indexOf(myTimeVal) + 1; // Eşitliklerde aynı sırayı verir
+                        if (rank === 1 && timesArr.length > 0) sectorClass = 'best-sector'; 
+                        const rankColorClass = rank === 1 ? 'rank-first' : '';
+                        if (timesArr.length > 0) rankDisplayHTML = `<span class="sector-rank ${rankColorClass}">(${rank}.)</span>`;
+                    }
+                    html += `<tr><td>${lbl}</td><td style="font-weight:bold;">${r.sure}</td><td class="${c1}">${r.fark}</td><td style="color:#555;" class="${sectorClass}">${r.sektor_sure}</td><td class="${c2}">${r.sektor_fark} ${rankDisplayHTML}</td></tr>`;
+                }
+            });
+            timesDiv.innerHTML += html + '</table>';
+
+            let tvOverallRank = "-";
+            let tvRun2Rank = "-";
+
+            if(racer.durum !== 'AKTIF') {
+                stopSmoothTimer();
+                const timeToCheck = displayTurn === 1 ? racer.tablo_1_bilgi.sure : racer.tablo_2_bilgi.sure;
+                const isTimeValid = timeToCheck && timeToCheck !== '---' && timeToCheck !== '00:00.00';
+
+                if(displayTurn === 2 && racer.tablo_2_bilgi.sure && racer.tablo_2_bilgi.sure !== '00:00.00') timerEl.textContent = racer.tablo_2_bilgi.sure;
+                else if(racer.tablo_1_bilgi.sure) timerEl.textContent = racer.tablo_1_bilgi.sure;
+                else timerEl.textContent = "00:00.00";
+
+                document.getElementById('liveDifference').textContent = "---"; document.getElementById('liveDifference').className = "diff-zero";
+
+                if (isTimeValid && rankDisplay) {
+                    const allVals = Object.values(allRacers);
+                    let finalHTML = "";
+
+                    if (displayTurn === 1) {
+                        const sorted = allVals.filter(r => r.tablo_1_bilgi.sure && r.tablo_1_bilgi.sure !== '---' && r.tablo_1_bilgi.sure !== '00:00.00').map(r => ({id: r.id, time: Math.round(parseTimeStr(r.tablo_1_bilgi.sure)*100)})).sort((a,b) => a.time - b.time);
+                        const myIndex = sorted.findIndex(x => x.id === racer.id);
+                        if (myIndex !== -1) {
+                            let rank = myIndex + 1;
+                            while(rank > 1 && sorted[rank-1].time === sorted[rank-2].time) { rank--; }
+                            tvOverallRank = rank;
+                            finalHTML = `<span style="font-size:1.8em; font-weight:bold; color:#333;">Sıra: ${rank}.</span>`;
+                        }
+                    } else if (displayTurn === 2) {
+                        const sortedTotal = allVals.filter(r => r.tablo_2_bilgi.sure && r.tablo_2_bilgi.sure !== '---' && r.tablo_2_bilgi.sure !== '00:00.00').map(r => ({id: r.id, time: Math.round(parseTimeStr(r.tablo_2_bilgi.sure)*100)})).sort((a,b) => a.time - b.time);
+                        let totalIndex = sortedTotal.findIndex(x => x.id === racer.id);
+                        let totalRank = totalIndex !== -1 ? totalIndex + 1 : "-";
+                        if(totalRank !== "-") { while(totalRank > 1 && sortedTotal[totalRank-1].time === sortedTotal[totalRank-2].time) { totalRank--; } }
+
+                        // 2. TUR ÖZEL SIRALAMASI - KESİN EŞİTLİK ÇÖZÜMÜ
+                        const sortedRun2 = allVals.filter(r => r.tablo_2_bilgi.sure && r.tablo_1_bilgi.sure && r.tablo_2_bilgi.sure !== '00:00.00').map(r => { 
+                            return {id: r.id, time: Math.round((parseTimeStr(r.tablo_2_bilgi.sure) - parseTimeStr(r.tablo_1_bilgi.sure)) * 100)}; 
+                        }).sort((a,b) => a.time - b.time);
+                        
+                        let run2Index = sortedRun2.findIndex(x => x.id === racer.id);
+                        let run2Rank = run2Index !== -1 ? run2Index + 1 : "-";
+                        if(run2Rank !== "-") { while(run2Rank > 1 && sortedRun2[run2Rank-1].time === sortedRun2[run2Rank-2].time) { run2Rank--; } }
+                        
+                        tvOverallRank = totalRank; tvRun2Rank = run2Rank;
+
+                        finalHTML = `
+                            <div style="display:flex; justify-content:center; gap:30px; align-items:center;">
+                                <div style="text-align:center;"><div style="font-size:0.8em; color:#666; text-transform:uppercase;">Genel</div><div style="font-size:1.8em; font-weight:900; color:#333;">${totalRank}.</div></div>
+                                <div style="width:1px; height:30px; background:#ccc;"></div>
+                                <div style="text-align:center;"><div style="font-size:0.8em; color:#666; text-transform:uppercase;">2. Tur</div><div style="font-size:1.8em; font-weight:900; color:#007bff;">${run2Rank}.</div></div>
+                            </div>`;
+                    }
+                    rankDisplay.innerHTML = finalHTML;
+                }
+            }
+
+            window.globalTvOverallRank = tvOverallRank;
+            window.globalTvRun2Rank = tvRun2Rank;
+
+            const mk1 = document.getElementById('marker-delta-k1'); const mk2 = document.getElementById('marker-delta-k2');
+            const ms01 = document.getElementById('marker-sector-01'); const ms12 = document.getElementById('marker-sector-12');
+            const r1 = myRecs.find(x => x.etiket === 'Kapı 1'); const r2 = myRecs.find(x => x.etiket === 'Kapı 2'); const rBitis = myRecs.find(x => x.etiket === 'Bitiş');
+
+            const getColor = (fark) => {
+                if (!fark || fark === '---') return '#333';
+                const val = parseFloat(fark.replace('+', ''));
+                if (val === 0) return '#333'; return fark.startsWith('-') ? '#009900' : '#cc0000';
+            };
+
+            const runKey = `${racer.id}_${displayTurn}`;
+
+            let p1 = (gate1Turn / totalTurns) * 100;
+            let p2 = (gate2Turn / totalTurns) * 100;
+
+            if (r1 && r1.fark && r1.fark !== '---') {
+                if (mk1) { mk1.style.display = 'block'; mk1.innerHTML = `<span style="color:${getColor(r1.fark)}">${r1.fark}</span>`; mk1.style.borderLeftColor = getColor(r1.fark); }
+                if (window.k1ShownFor !== runKey) {
+                    window.k1ShownFor = runKey; 
+                    let myTimeVal = Math.round(parseTimeStr(r1.sektor_sure) * 100); 
+                    let rank = r1.sektor_sure ? ((sectorTimesMap['Kapı 1'] || []).indexOf(myTimeVal) + 1) : 1;
+                    
+                    triggerTVSplit(r1.fark, rank, "sector", p1); 
+                    freezeTVClock(r1.sure, r1.fark); 
+                    
+                    if (ms01 && r1.sektor_fark) {
+                        ms01.innerHTML = `<span style="color:${getColor(r1.sektor_fark)}">${r1.sektor_fark}</span>`; ms01.style.borderLeftColor = getColor(r1.sektor_fark); ms01.style.opacity = '1';
+                        setTimeout(() => { if (ms01) ms01.style.opacity = '0'; }, 2000);
+                    }
+                }
+            } else {
+                if (window.k1ShownFor === runKey) window.k1ShownFor = null;
+                if (mk1) mk1.style.display = 'none'; if (ms01) ms01.style.opacity = '0';
+            }
+            
+            if (r2 && r2.fark && r2.fark !== '---') {
+                if (mk2) { mk2.style.display = 'block'; mk2.innerHTML = `<span style="color:${getColor(r2.fark)}">${r2.fark}</span>`; mk2.style.borderLeftColor = getColor(r2.fark); }
+                if (window.k2ShownFor !== runKey) {
+                    window.k2ShownFor = runKey;
+                    let myTimeVal = Math.round(parseTimeStr(r2.sektor_sure) * 100); 
+                    let rank = r2.sektor_sure ? ((sectorTimesMap['Kapı 2'] || []).indexOf(myTimeVal) + 1) : 1;
+                    
+                    triggerTVSplit(r2.fark, rank, "sector", p2); 
+                    freezeTVClock(r2.sure, r2.fark); 
+                    
+                    if (ms12 && r2.sektor_fark) {
+                        ms12.innerHTML = `<span style="color:${getColor(r2.sektor_fark)}">${r2.sektor_fark}</span>`; ms12.style.borderLeftColor = getColor(r2.sektor_fark); ms12.style.opacity = '1';
+                        setTimeout(() => { if (ms12) ms12.style.opacity = '0'; }, 2000);
+                    }
+                }
+            } else {
+                if (window.k2ShownFor === runKey) window.k2ShownFor = null;
+                if (mk2) mk2.style.display = 'none'; if (ms12) ms12.style.opacity = '0';
+            }
+
+            if (rBitis && rBitis.fark && rBitis.fark !== '---') {
+                if (window.finishShownFor !== runKey) {
+                    window.finishShownFor = runKey;
+                    triggerTVSplit(rBitis.fark, null, "finish", 100); 
+                    freezeTVClock(rBitis.sure, rBitis.fark); 
+                    
+                    window.tvFinishedRankData = { overall: tvOverallRank, run2: displayTurn === 2 ? tvRun2Rank : null };
+                    window.tvFinishTimestamp = Date.now();
+                    window.tvForceFinishShowUntil = Date.now() + 6000;
+                    window.tvClearedForCurrentRacer = false;
+                }
+            } else {
+                if (window.finishShownFor === runKey) window.finishShownFor = null;
+            }
+        }
+
+        function updateLeaderboards(racers, queue) {
+            const lb1 = document.getElementById('leaderboard1'); lb1.innerHTML = '';
+            let list1 = racers.filter(r => r.tablo_1_bilgi.sure && r.tablo_1_bilgi.sure !== '---' && r.tablo_1_bilgi.sure !== '00:00.00');
+            list1.sort((a, b) => { 
+                let t1 = Math.round(parseTimeStr(a.tablo_1_bilgi.sure) * 100); 
+                let t2 = Math.round(parseTimeStr(b.tablo_1_bilgi.sure) * 100); 
+                if (t1 === t2) return a.numara - b.numara; 
+                return t1 - t2; 
+            });
+            let lastTime1 = -1; let lastRank1 = 0;
+            list1.forEach((r, index) => {
+                let currentTime = Math.round(parseTimeStr(r.tablo_1_bilgi.sure) * 100); 
+                let displayRank;
+                if (currentTime === lastTime1) displayRank = lastRank1; else displayRank = index + 1;
+                lastTime1 = currentTime; lastRank1 = displayRank;
+                lb1.insertRow().innerHTML = `<td><b>${displayRank}</b></td><td>#${r.numara}</td><td>${r.isim}</td><td>${r.tablo_1_bilgi.sure}</td>`;
+            });
+
+            const lb2 = document.getElementById('leaderboard2'); lb2.innerHTML = '';
+            let list2 = racers.filter(r => r.tablo_2_bilgi.sure && r.tablo_2_bilgi.sure !== '---' && r.tablo_2_bilgi.sure !== '00:00.00');
+            list2.sort((a, b) => { 
+                let t1 = Math.round(parseTimeStr(a.tablo_2_bilgi.sure) * 100); 
+                let t2 = Math.round(parseTimeStr(b.tablo_2_bilgi.sure) * 100); 
+                if (t1 === t2) return a.numara - b.numara; 
+                return t1 - t2; 
+            });
+            let lastTime2 = -1; let lastRank2 = 0;
+            list2.forEach((r, index) => {
+                let currentTime = Math.round(parseTimeStr(r.tablo_2_bilgi.sure) * 100); 
+                let displayRank;
+                if (currentTime === lastTime2) displayRank = lastRank2; else displayRank = index + 1;
+                lastTime2 = currentTime; lastRank2 = displayRank;
+                const fStr = r.tablo_2_bilgi.fark; let c = 'positive-diff';
+                if (fStr && fStr !== '---') { const val = parseFloat(fStr.replace('+', '')); if (val === 0) c = 'neutral-diff'; else if (fStr.startsWith('-')) c = 'negative-diff'; } else c = '';
+                lb2.insertRow().innerHTML = `<td><b>${displayRank}</b></td><td>#${r.numara}</td><td>${r.isim}</td><td>${r.tablo_2_bilgi.sure}</td><td class="${c}">${fStr}</td>`;
+            });
+
+            const q = document.getElementById('secondRoundQueue'); q.innerHTML = '';
+            queue.forEach(r => q.insertRow().innerHTML = `<td>#${r.numara}</td><td>${r.isim}</td><td>${r.tur_1_suresi_str}</td>`);
+        }
+        
+        function sendMessage(act, d={}) { if(socket.readyState===1) socket.send(JSON.stringify({action:act, ...d})); }
+        function addRacer() { const n=document.getElementById('newRacerName').value.trim(); if(n){sendMessage('ekle',{isim:n});document.getElementById('newRacerName').value='';} }
+        function sendStartSignal(t) { 
+            if(activeRacerId){
+                let startMs = Date.now();
+                
+                // 1. Sadece "Kronometreyi Başlat" emrini gönderiyoruz.
+                sendMessage(t===1?'start_signal':'start_signal_tur_2', {yarismaci_id: activeRacerId}); 
+                
+                // 2. SUNUCUYU BEKLEME: Kronometreyi anında yerel olarak başlat!
+                let offsetMs = 0;
+                let r = allRacers[activeRacerId];
+                if (t === 2 && r && r.tablo_1_bilgi && r.tablo_1_bilgi.sure && r.tablo_1_bilgi.sure !== '---') {
+                    let t1Ms = Math.round(parseTimeStr(r.tablo_1_bilgi.sure) * 1000);
+                    if (t1Ms < 999999900) offsetMs = t1Ms;
+                }
+                
+                localStartTimeRef = startMs - offsetMs;
+                startSmoothTimer();
+                
+                // YENİ: Çubuğu sıfırlarken kaçıncı turu başlattığımızı (t) zorla içine atıyoruz!
+                resetTurnBar(t);
+            } 
+        }
+        function sendSignal(g) { 
+            if(activeRacerId) {
+                let clientMs = isTimerRunning ? (Date.now() - localStartTimeRef) : null;
+                
+                // YENİ: Çifte Sayım (Double Counting) Koruması
+                // Eğer 2. turdaysak, toplam süreden 1. tur süresini çıkarıp sadece "net süreyi" gönder
+                let r = allRacers[activeRacerId];
+                if (clientMs !== null && r && parseInt(r.aktif_tur) === 2) {
+                    let t1Ms = Math.round(parseTimeStr(r.tablo_1_bilgi?.sure) * 1000);
+                    if (t1Ms < 999999990) {
+                        clientMs = Math.max(0, clientMs - t1Ms);
+                    }
+                }
+                
+                let payload = {yarismaci_id: activeRacerId, gate: g};
+                if (clientMs !== null) payload.client_time = clientMs / 1000.0;
+                
+                sendMessage('lap_signal', payload); 
+            } 
+        }
+
+        function sendFinishSignal() { 
+            if(activeRacerId) {
+                let clientMs = isTimerRunning ? (Date.now() - localStartTimeRef) : null;
+                
+                // YENİ: Çifte Sayım (Double Counting) Koruması
+                let r = allRacers[activeRacerId];
+                if (clientMs !== null && r && parseInt(r.aktif_tur) === 2) {
+                    let t1Ms = Math.round(parseTimeStr(r.tablo_1_bilgi?.sure) * 1000);
+                    if (t1Ms < 999999990) {
+                        clientMs = Math.max(0, clientMs - t1Ms);
+                    }
+                }
+                
+                let payload = {yarismaci_id: activeRacerId};
+                if (clientMs !== null) payload.client_time = clientMs / 1000.0;
+                
+                sendMessage('finish_signal', payload); 
+            } 
+        }
+
+        function downloadResultsCSV() {
+            let csvContent = "\uFEFF"; 
+            csvContent += "Numara,İsim,Durum,Aktif Tur,Tur 1 Sure,Tur 2 Sure,Kapi 1 (T1),Kapi 2 (T1),Bitis (T1),Kapi 1 (T2),Kapi 2 (T2),Bitis (T2)\n";
+
+            Object.values(allRacers).forEach(r => {
+                let no = r.numara || "-"; let isim = r.isim || "-"; let durum = r.durum || "-"; let tur = r.aktif_tur || "-";
+                let t1Sure = (r.tablo_1_bilgi && r.tablo_1_bilgi.sure) ? r.tablo_1_bilgi.sure : "-";
+                let t2Sure = (r.tablo_2_bilgi && r.tablo_2_bilgi.sure) ? r.tablo_2_bilgi.sure : "-";
+                
+                let k1_t1 = "-", k2_t1 = "-", bitis_t1 = "-";
+                let t1Kayitlar = r.kayitlar.filter(rec => parseInt(rec.tur) === 1);
+                let recK1_t1 = t1Kayitlar.find(x => x.etiket === 'Kapı 1'); if(recK1_t1 && recK1_t1.sure) k1_t1 = recK1_t1.sure;
+                let recK2_t1 = t1Kayitlar.find(x => x.etiket === 'Kapı 2'); if(recK2_t1 && recK2_t1.sure) k2_t1 = recK2_t1.sure;
+                let recBitis_t1 = t1Kayitlar.find(x => x.etiket === 'Bitiş'); if(recBitis_t1 && recBitis_t1.sure) bitis_t1 = recBitis_t1.sure;
+
+                let k1_t2 = "-", k2_t2 = "-", bitis_t2 = "-";
+                let t2Kayitlar = r.kayitlar.filter(rec => parseInt(rec.tur) === 2);
+                let recK1_t2 = t2Kayitlar.find(x => x.etiket === 'Kapı 1'); if(recK1_t2 && recK1_t2.sure) k1_t2 = recK1_t2.sure;
+                let recK2_t2 = t2Kayitlar.find(x => x.etiket === 'Kapı 2'); if(recK2_t2 && recK2_t2.sure) k2_t2 = recK2_t2.sure;
+                let recBitis_t2 = t2Kayitlar.find(x => x.etiket === 'Bitiş'); if(recBitis_t2 && recBitis_t2.sure) bitis_t2 = recBitis_t2.sure;
+
+                let row = `${no},${isim},${durum},${tur},${t1Sure},${t2Sure},${k1_t1},${k2_t1},${bitis_t1},${k1_t2},${k2_t2},${bitis_t2}`;
+                csvContent += row + "\n";
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const date = new Date();
+            const dateStr = `${date.getDate()}_${date.getMonth()+1}_${date.getFullYear()}`;
+            
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob); link.setAttribute("href", url);
+                link.setAttribute("download", `Alp_Disiplini_Antrenman_${dateStr}.csv`); link.style.visibility = 'hidden';
+                document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            }
+        }
+
+        // --- MANUEL TV YÖNETMENİ ---
+        function toggleTVMode() { document.body.classList.toggle('tv-mode'); }
+
+        function getFlagEmoji(countryCode) {
+            const flags = { 'TUR':'🇹🇷', 'USA':'🇺🇸', 'AUT':'🇦🇹', 'SUI':'🇨🇭', 'ITA':'🇮🇹', 'FRA':'🇫🇷', 'GER':'🇩🇪', 'NOR':'🇳🇴', 'CAN':'🇨🇦', 'SWE':'🇸🇪', 'SLO':'🇸🇮', 'CRO':'🇭🇷' };
+            return flags[countryCode.toUpperCase()] || countryCode;
+        }
+        function parseRacerName(fullName) {
+            let match = fullName.match(/\((.*?)\)/);
+            if (match) return { name: fullName.replace(/\(.*\)/, '').trim(), flag: getFlagEmoji(match[1]) };
+            return { name: fullName, flag: '' };
+        }
+
+        let tvFreezeUntil = 0;
+        let tvFrozenTimeString = "";
+        let tvFrozenDiffString = "";
+        
+        window.tvFinishTimestamp = 0;
+        window.tvForceFinishShowUntil = 0;
+        window.tvClearedForCurrentRacer = false;
+        
+        function freezeTVClock(timeStr, diffStr) {
+            if (!timeStr || timeStr === '---') return;
+            tvFrozenTimeString = timeStr;
+            tvFrozenDiffString = diffStr || "";
+            tvFreezeUntil = Date.now() + 1500; 
+        }
+
+        function triggerTVSplit(fark, rank, type="sector", topPct=0) {
+            const container = document.getElementById('tv-splits-container');
+            if(!container || !fark || fark === '---') return;
+            let val = parseFloat(fark.replace('+', ''));
+            let color = val === 0 ? '#555' : (fark.startsWith('-') ? '#2ecc71' : '#e74c3c');
+            let iconHtml = '';
+            if (type === "start") iconHtml = `<div class="tv-hex-rank" style="background:${color}; font-size: 0.9em;">🏠</div>`;
+            else if (type === "sector") iconHtml = `<div class="tv-hex-rank" style="background:${color}">${rank || '-'}</div>`;
+            else if (type === "finish") iconHtml = `<div style="width:40px; height:100%; background:${color}; display:flex; align-items:center; justify-content:center; font-size:1.1em; border-top-left-radius: 4px; border-bottom-left-radius: 4px;">🏁</div>`;
+            
+            let row = document.createElement('div'); 
+            row.className = 'tv-split-row';
+            row.style.top = `calc(${topPct}% - 17.5px)`; 
+            
+            row.innerHTML = `${iconHtml}<div class="tv-split-time" style="color:${color}">${fark}</div>`;
+            container.appendChild(row);
+        }
+
+        // YENİ: COMBO (NABIZ + PARANTEZ) EKRANA BASMA FONKSİYONU
+        function showStreakBracket(type, value, startPct, endPct) {
+            const wrapper = document.getElementById('tv-track-wrapper');
+            if (!wrapper) return;
+            
+            let color = type === 'gain' ? '#2ecc71' : '#e74c3c';
+            let displayVal = value;
+            if (type === 'gain' && parseFloat(value) > 0) displayVal = "-" + value;
+            if (type === 'loss' && parseFloat(value) > 0) displayVal = "+" + value;
+            
+            let top = startPct;
+            let height = endPct - startPct;
+            
+            let bracket = document.createElement('div');
+            bracket.className = 'tv-streak-bracket';
+            bracket.style.top = top + '%';
+            bracket.style.height = height + '%';
+            bracket.style.borderColor = color;
+            
+            let label = document.createElement('div');
+            label.className = 'tv-streak-label';
+            label.style.color = color;
+            label.innerHTML = displayVal;
+            
+            bracket.appendChild(label);
+            wrapper.appendChild(bracket);
+            
+            setTimeout(() => bracket.classList.add('show'), 50);
+            
+            // 2.5 Saniye Sonra Uçur
+            setTimeout(() => {
+                bracket.classList.remove('show');
+                setTimeout(() => bracket.remove(), 300);
+            }, 2500);
+        }
+
+        function getTargetTimeForNextGate(currentTurn, passedGates) {
+            let targetGate = "";
+            if (passedGates === 0) targetGate = 'Kapı 1';
+            else if (passedGates === 1) targetGate = 'Kapı 2';
+            else if (passedGates === 2) targetGate = 'Bitiş';
+            else return null;
+
+            let leaderRacer = null;
+            let allVals = Object.values(allRacers);
+
+            // 1. ADIM: Mevcut Lideri Bul (Tur 1 veya Tur 2'yi bitiren en hızlı kişi)
+            if (currentTurn === 1) {
+                let bitirenler = allVals.filter(r => r.tablo_1_bilgi && r.tablo_1_bilgi.sure && r.tablo_1_bilgi.sure !== '---' && r.tablo_1_bilgi.sure !== '00:00.00');
+                if (bitirenler.length > 0) {
+                    bitirenler.sort((a,b) => parseTimeStr(a.tablo_1_bilgi.sure) - parseTimeStr(b.tablo_1_bilgi.sure));
+                    leaderRacer = bitirenler[0]; // 1. Turun Genel Lideri
+                }
+            } else if (currentTurn === 2) {
+                let bitirenler = allVals.filter(r => r.tablo_2_bilgi && r.tablo_2_bilgi.sure && r.tablo_2_bilgi.sure !== '---' && r.tablo_2_bilgi.sure !== '00:00.00');
+                if (bitirenler.length > 0) {
+                    bitirenler.sort((a,b) => parseTimeStr(a.tablo_2_bilgi.sure) - parseTimeStr(b.tablo_2_bilgi.sure));
+                    leaderRacer = bitirenler[0]; // 2. Turun (Yarışın) Genel Lideri
+                }
+            }
+
+            // 2. ADIM: Eğer lider koltuğunda biri varsa, KESİNLİKLE liderin o kapıdaki süresini hedef olarak dön!
+            if (leaderRacer && leaderRacer.kayitlar) {
+                let rec = leaderRacer.kayitlar.find(k => parseInt(k.tur) === currentTurn && k.etiket === targetGate);
+                if (rec && rec.sure && rec.sure !== '---') {
+                    return parseTimeStr(rec.sure) * 1000;
+                }
+            }
+
+            // 3. ADIM: Eğer yarış yeni başladıysa ve henüz bitiş çizgisini geçen (lider) kimse yoksa, 
+            // o zaman mecburen o an o kapıdan geçen en iyi süreyi hedef olarak baz al.
+            let bestMs = 99999999;
+            allVals.forEach(r => {
+                if (r.kayitlar) {
+                    let rec = r.kayitlar.find(k => parseInt(k.tur) === currentTurn && k.etiket === targetGate);
+                    if (rec && rec.sure && rec.sure !== '---') {
+                        let ms = parseTimeStr(rec.sure) * 1000;
+                        if (ms < bestMs) bestMs = ms;
+                    }
+                }
+            });
+            return bestMs === 99999999 ? null : bestMs;
+        }
+
+        let lastActiveTvRacerId = null;
+        let lastTvRacerTurn = null;
+
+        setInterval(() => {
+            const tvSidebar = document.getElementById('tv-sidebar');
+            const tvOverlay = document.getElementById('tv-graphic-overlay');
+            if (!tvOverlay) return;
+
+            let tvRacer = activeRacerId ? allRacers[activeRacerId] : null;
+
+            if (!tvRacer) {
+                tvOverlay.classList.remove('show');
+                tvSidebar.classList.remove('show');
+                return;
+            }
+
+            if (activeRacerId !== lastActiveTvRacerId || tvRacer.aktif_tur !== lastTvRacerTurn) {
+                lastActiveTvRacerId = activeRacerId;
+                lastTvRacerTurn = tvRacer.aktif_tur;
+                
+                window.tvClearedForCurrentRacer = false;
+                window.tvForceFinishShowUntil = 0;
+                window.startAdvShownFor = null;
+                
+                document.getElementById('tv-splits-container').innerHTML = '';
+                document.getElementById('tv-inline-diff').classList.remove('show');
+                document.getElementById('tv-inline-rank-1').classList.remove('show');
+                document.getElementById('tv-inline-rank-2').classList.remove('show');
+                
+                // Varsa ekrandaki eski combo parantezlerini temizle
+                document.querySelectorAll('.tv-streak-bracket').forEach(e => e.remove());
+
+                tvTurnColors = [];
+                updateTVTrackGradient();
+                let dot = document.getElementById('tv-bar-dot');
+                if (dot) { dot.style.top = '0%'; dot.style.opacity = '0'; dot.style.backgroundColor = '#444'; }
+
+                let hasT1 = tvRacer.tablo_1_bilgi?.sure && tvRacer.tablo_1_bilgi.sure !== '---' && tvRacer.tablo_1_bilgi.sure !== '00:00.00';
+                let hasT2 = tvRacer.tablo_2_bilgi?.sure && tvRacer.tablo_2_bilgi.sure !== '---' && tvRacer.tablo_2_bilgi.sure !== '00:00.00';
+
+                if (tvRacer.durum === 'TAMAMLANDI' && hasT2) {
+                    window.tvForceFinishShowUntil = Date.now() + 6000;
+                    window.tvFinishedRankData = { 
+                        overall: window.globalTvOverallRank || "-", 
+                        run2: window.globalTvRun2Rank || "-" 
+                    };
+                    
+                    let finalTime = tvRacer.tablo_2_bilgi?.sure || "00:00.00";
+                    let finalDiff = tvRacer.tablo_2_bilgi?.fark || "---";
+                    freezeTVClock(finalTime, finalDiff);
+                    window.tvFinishTimestamp = Date.now();
+                }
+            }
+
+            let parsed = parseRacerName(tvRacer.isim || "BEKLENİYOR");
+
+            if (window.tvForceFinishShowUntil && Date.now() < window.tvForceFinishShowUntil) {
+                tvOverlay.classList.add('show');
+                tvSidebar.classList.add('show');
+                document.getElementById('tv-pre-start-card').style.display = 'none';
+                document.getElementById('tv-live-banner').style.display = 'flex';
+                document.getElementById('tv-target-box').style.opacity = '0';
+
+                document.getElementById('tv-bib').textContent = tvRacer.numara || "--";
+                document.getElementById('tv-name').textContent = parsed.name;
+                document.getElementById('tv-flag').textContent = parsed.flag;
+                document.getElementById('tv-clock').textContent = tvFrozenTimeString;
+
+                let diffBox = document.getElementById('tv-inline-diff');
+                if(tvFrozenDiffString && tvFrozenDiffString !== "---") {
+                    diffBox.textContent = tvFrozenDiffString;
+                    let val = parseFloat(tvFrozenDiffString.replace('+', ''));
+                    diffBox.style.backgroundColor = val === 0 ? '#555' : (tvFrozenDiffString.startsWith('-') ? '#2ecc71' : '#e74c3c');
+                    diffBox.classList.add('show');
+                }
+
+                let r1Box = document.getElementById('tv-inline-rank-1');
+                let r2Box = document.getElementById('tv-inline-rank-2');
+                let ranks = window.tvFinishedRankData || {};
+
+                if (ranks.overall && ranks.overall !== "-") {
+                    r1Box.textContent = `GENEL: ${ranks.overall}.`;
+                    r1Box.classList.add('show');
+                }
+                if (ranks.run2 && ranks.run2 !== "-") {
+                    if (Date.now() - window.tvFinishTimestamp > 1000) { 
+                        r2Box.textContent = `2. TUR: ${ranks.run2}.`;
+                        r2Box.classList.add('show');
+                    }
+                }
+                return; 
+            } 
+            else if (window.tvForceFinishShowUntil && Date.now() >= window.tvForceFinishShowUntil) {
+                window.tvForceFinishShowUntil = 0;
+                window.tvClearedForCurrentRacer = true;
+                tvOverlay.classList.remove('show');
+                tvSidebar.classList.remove('show');
+                document.getElementById('tv-splits-container').innerHTML = '';
+                return;
+            }
+
+            if (window.tvClearedForCurrentRacer) {
+                tvOverlay.classList.remove('show');
+                tvSidebar.classList.remove('show');
+                return;
+            }
+
+            let hasT1 = tvRacer.tablo_1_bilgi?.sure && tvRacer.tablo_1_bilgi.sure !== '---' && tvRacer.tablo_1_bilgi.sure !== '00:00.00';
+            let hasT2 = tvRacer.tablo_2_bilgi?.sure && tvRacer.tablo_2_bilgi.sure !== '---' && tvRacer.tablo_2_bilgi.sure !== '00:00.00';
+
+            if (tvRacer.durum === 'HAZIR' || tvRacer.durum === 'BEKLEMEDE' || (tvRacer.durum === 'TAMAMLANDI' && !hasT2)) {
+                tvOverlay.classList.add('show');
+                tvSidebar.classList.add('show'); 
+                
+                let dot = document.getElementById('tv-bar-dot');
+                if (dot) { dot.style.opacity = '0'; dot.style.backgroundColor = '#444'; }
+
+                document.getElementById('tv-live-banner').style.display = 'none';
+                document.getElementById('tv-pre-start-card').style.display = 'flex';
+                
+                document.getElementById('tv-pre-bib').textContent = tvRacer.numara || "--";
+                document.getElementById('tv-pre-name').textContent = parsed.name;
+                document.getElementById('tv-pre-flag').textContent = parsed.flag;
+                
+                let infoHtml = "";
+                let displayTurn = hasT1 ? 2 : 1; 
+
+                if (displayTurn === 1) {
+                    infoHtml = `<div class="tv-info-row"><span>DURUM:</span> <span class="tv-info-val">1. TUR</span></div>`;
+                } else if (displayTurn === 2) {
+                    let t1Time = tvRacer.tablo_1_bilgi.sure;
+                    infoHtml += `<div class="tv-info-row"><span>1. Tur Süresi:</span> <span class="tv-info-val">${t1Time}</span></div>`;
+                    
+                    let t1List = Object.values(allRacers).filter(r => r.tablo_1_bilgi?.sure && r.tablo_1_bilgi.sure !== '---' && r.tablo_1_bilgi.sure !== '00:00.00');
+                    t1List.sort((a,b) => parseTimeStr(a.tablo_1_bilgi.sure) - parseTimeStr(b.tablo_1_bilgi.sure));
+                    
+                    let myT1Rank = t1List.findIndex(r => r.id === tvRacer.id);
+                    if (myT1Rank !== -1) {
+                        myT1Rank++; 
+                        while(myT1Rank > 1 && Math.round(parseTimeStr(t1List[myT1Rank-1].tablo_1_bilgi.sure)*100) === Math.round(parseTimeStr(t1List[myT1Rank-2].tablo_1_bilgi.sure)*100)) {
+                            myT1Rank--;
+                        }
+                        infoHtml += `<div class="tv-info-row"><span>1. Tur Sırası:</span> <span class="tv-info-val" style="color:#f1c40f;">${myT1Rank}.</span></div>`;
+                    }
+
+                    let finishedRun2 = Object.values(allRacers).filter(r => r.tablo_2_bilgi?.sure && r.tablo_2_bilgi.sure !== '---' && r.tablo_2_bilgi.sure !== '00:00.00');
+                    finishedRun2.sort((a,b) => parseTimeStr(a.tablo_2_bilgi.sure) - parseTimeStr(b.tablo_2_bilgi.sure));
+                    
+                    if (finishedRun2.length > 0) {
+                        let currentLeader = finishedRun2[0];
+                        let leaderT1 = parseTimeStr(currentLeader.tablo_1_bilgi.sure);
+                        let myT1 = parseTimeStr(t1Time);
+                        if (myT1 !== 99999999 && leaderT1 !== 99999999) {
+                            let diff = myT1 - leaderT1;
+                            let sign = diff > 0 ? '+' : '';
+                            let colorClass = diff > 0 ? 'red' : (diff < 0 ? 'green' : '');
+                            infoHtml += `<div class="tv-info-row"><span>Lidere Avantaj:</span> <span class="tv-info-val ${colorClass}">${sign}${diff.toFixed(2)}</span></div>`;
+                        }
+                    }
+                }
+                document.getElementById('tv-pre-info').innerHTML = infoHtml;
+            } 
+            
+            else if (tvRacer.durum === 'AKTIF') {
+                tvOverlay.classList.add('show');
+                tvSidebar.classList.add('show'); 
+                
+                let dot = document.getElementById('tv-bar-dot');
+                if (dot) dot.style.opacity = '1';
+
+                document.getElementById('tv-pre-start-card').style.display = 'none';
+                document.getElementById('tv-live-banner').style.display = 'flex';
+
+                document.getElementById('tv-bib').textContent = tvRacer.numara || "--";
+                document.getElementById('tv-name').textContent = parsed.name;
+                document.getElementById('tv-flag').textContent = parsed.flag;
+                
+                let diffBox = document.getElementById('tv-inline-diff');
+                
+                let turn = parseInt(tvRacer.aktif_tur);
+                let runKey = `${tvRacer.id}_${turn}`;
+                
+                if (turn === 2 && window.startAdvShownFor !== runKey) {
+                    window.startAdvShownFor = runKey;
+                    let t1Time = tvRacer.tablo_1_bilgi?.sure;
+                    
+                    let finishedRun2 = Object.values(allRacers).filter(r => r.tablo_2_bilgi?.sure && r.tablo_2_bilgi.sure !== '---' && r.tablo_2_bilgi.sure !== '00:00.00');
+                    finishedRun2.sort((a,b) => parseTimeStr(a.tablo_2_bilgi.sure) - parseTimeStr(b.tablo_2_bilgi.sure));
+
+                    if (t1Time && t1Time !== '---') {
+                        let myT1 = parseTimeStr(t1Time);
+                        if (finishedRun2.length > 0) {
+                            let targetT1 = parseTimeStr(finishedRun2[0].tablo_1_bilgi.sure);
+                            if (myT1 !== 99999999 && targetT1 !== 99999999) {
+                                let diff = myT1 - targetT1;
+                                let diffStr = (diff > 0 ? '+' : '') + diff.toFixed(2);
+                                triggerTVSplit(diffStr, null, "start", 0); 
+                            }
+                        }
+                    }
+                }
+
+                if (Date.now() < tvFreezeUntil) {
+                    document.getElementById('tv-clock').textContent = tvFrozenTimeString;
+                    if(tvFrozenDiffString && tvFrozenDiffString !== "---") {
+                        diffBox.textContent = tvFrozenDiffString;
+                        let val = parseFloat(tvFrozenDiffString.replace('+', ''));
+                        diffBox.style.backgroundColor = val === 0 ? '#555' : (tvFrozenDiffString.startsWith('-') ? '#2ecc71' : '#e74c3c');
+                        diffBox.classList.add('show');
+                    }
+                } else {
+                    const mainTimer = document.getElementById('currentTimer');
+                    if (mainTimer) document.getElementById('tv-clock').textContent = mainTimer.textContent;
+                    diffBox.classList.remove('show');
+                }
+
+                let targetBox = document.getElementById('tv-target-box');
+                let showTarget = false;
+                if (isTimerRunning) {
+                    let myRecs = tvRacer.kayitlar ? tvRacer.kayitlar.filter(r => parseInt(r.tur) === turn) : [];
+                    let passedGates = myRecs.length; 
+                    let targetMs = getTargetTimeForNextGate(turn, passedGates);
+                    
+                    if (targetMs) {
+                        let currentMs = Date.now() - localStartTimeRef;
+                        let timeToTarget = targetMs - currentMs;
+                        if (timeToTarget <= 3000) {
+                            targetBox.textContent = "HEDEF: " + formatMsToTime(targetMs); 
+                            targetBox.style.opacity = '1';
+                            showTarget = true;
+                        }
+                    }
+                }
+                if (!showTarget && targetBox) targetBox.style.opacity = '0';
+            } 
+            else {
+                tvOverlay.classList.remove('show');
+                tvSidebar.classList.remove('show');
+            }
+        }, 50);
+        
+    </script>
+</body>
+</html>
