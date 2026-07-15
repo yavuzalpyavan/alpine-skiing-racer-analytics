@@ -5,46 +5,67 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Alp Disiplini Kronometre - Pro Analytics</title>
     <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; text-align: center; margin: 0; padding: 20px; background-color: #f4f4f4; display: flex; justify-content: center; }
+        body { font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; text-align: center; margin: 0; padding: 20px; background-color: #f0f2f5; display: flex; justify-content: center; color: #2d3436; }
 
-        /* --- SOL PANEL --- */
+        /* --- SOL PANEL --- (Do not touch layout, just slightly refine fonts) */
         .track-container { width: 160px; height: 85vh; position: fixed; left: 10px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
         .track-line-wrapper { height: 80%; width: 40px; display: flex; justify-content: center; position: relative; }
         .track-line { width: 16px; height: 100%; background: #e0e0e0; border-radius: 8px; position: absolute; top: 0; box-shadow: inset 2px 2px 5px rgba(0,0,0,0.1); overflow: hidden; z-index: 1; }
         #trackSegments { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: transparent; }
         .turn-indicator { width: 38px; height: 38px; background-color: #444; border: 4px solid white; border-radius: 50%; position: absolute; left: 50%; transform: translateX(-50%) translateY(-50%); top: 0%; transition: top 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.3s ease; box-shadow: 0 4px 8px rgba(0,0,0,0.5); z-index: 20; }
         .turn-number-container { margin-top: 15px; text-align: center; }
-        .turn-number { font-size: 1.8em; font-weight: 900; color: #333; display: block; }
-        .turn-label { font-size: 0.9em; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+        .turn-number { font-size: 2em; font-weight: 900; color: #2d3436; display: block; text-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .turn-label { font-size: 0.85em; color: #636e72; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; }
 
         /* --- ANA İÇERİK --- */
         .main-content { flex: 1; max-width: 900px; margin-left: 180px; }
-        .timer-display { font-size: 4em; margin: 10px 0; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -2px; color: #333; }
-        #liveDifference { font-size: 5em; font-weight: 900; margin-bottom: 0px; line-height: 1; }
-        .live-display-container { margin-bottom: 20px; padding: 10px; background: #fff; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); display: inline-block; min-width: 300px; }
-        .diff-negative { color: #009900; } .diff-positive { color: #cc0000; } .diff-zero { color: #ccc; } .neutral-diff { color: #333; font-weight: bold; }
+        h1 { font-weight: 800; color: #2d3436; letter-spacing: -1px; margin-bottom: 25px; }
+        h2 { font-weight: 700; color: #2d3436; margin-top: 30px; border-bottom: 2px solid #dfe6e9; padding-bottom: 10px; display: inline-block; }
+        .timer-display { font-size: 4.5em; margin: 10px 0; font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: -2px; color: #2d3436; text-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        #liveDifference { font-size: 5.5em; font-weight: 900; margin-bottom: 0px; line-height: 1; text-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        .live-display-container { margin-bottom: 25px; padding: 25px; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.06); display: inline-block; min-width: 340px; border: 1px solid rgba(255,255,255,0.5); }
+        .diff-negative { color: #00b894; } .diff-positive { color: #d63031; } .diff-zero { color: #b2bec3; } .neutral-diff { color: #2d3436; font-weight: 900; }
 
-        button { font-size: 1em; padding: 12px 24px; margin: 5px; cursor: pointer; border: none; border-radius: 4px; background: #e0e0e0; transition: background 0.2s; touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
-        button:hover { background: #d0d0d0; } button:active { transform: scale(0.98); }
-        .btn-start { background-color: #28a745; color: white; } .btn-gate { background-color: #17a2b8; color: white; } .btn-finish { background-color: #dc3545; color: white; }
-        .btn-turn { background-color: #ffc107; color: #000; font-weight: bold; border: 3px solid #e0a800; transform: scale(1.15); box-shadow: 0 4px 0 #c69500; }
-        .btn-turn:active { transform: scale(1.10); box-shadow: 0 2px 0 #c69500; position: relative; top: 2px; }
+        button { font-family: inherit; font-size: 1.05em; padding: 14px 28px; margin: 8px; cursor: pointer; border: none; border-radius: 10px; background: #ffffff; color: #2d3436; font-weight: 700; transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1); touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #dfe6e9; }
+        button:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); } 
+        button:active { transform: translateY(1px) scale(0.97); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        
+        .btn-start { background: linear-gradient(135deg, #00b894, #00cec9); color: white; border: none; box-shadow: 0 6px 15px rgba(0, 184, 148, 0.3); } 
+        .btn-gate { background: linear-gradient(135deg, #74b9ff, #0984e3); color: white; border: none; box-shadow: 0 6px 15px rgba(9, 132, 227, 0.3); } 
+        .btn-finish { background: linear-gradient(135deg, #ff7675, #d63031); color: white; border: none; box-shadow: 0 6px 15px rgba(214, 48, 49, 0.3); }
+        
+        .btn-turn { background: linear-gradient(135deg, #ffeaa7, #fdcb6e); color: #2d3436; font-weight: 900; font-size: 1.3em; border: none; transform: scale(1.15); box-shadow: 0 8px 20px rgba(253, 203, 110, 0.4); padding: 20px 40px; border-radius: 15px; text-transform: uppercase; letter-spacing: 1px; }
+        .btn-turn:hover { transform: scale(1.18) translateY(-3px); box-shadow: 0 12px 25px rgba(253, 203, 110, 0.5); }
+        .btn-turn:active { transform: scale(1.10) translateY(2px); box-shadow: 0 4px 10px rgba(253, 203, 110, 0.3); }
 
-        table { margin: 20px auto; border-collapse: collapse; width: 100%; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        th, td { border: 1px solid #eee; padding: 10px; text-align: center; } th { background-color: #f8f9fa; }
-        .negative-diff { color: green; font-weight: bold; } .positive-diff { color: red; font-weight: bold; }
-        .current-racer { background-color: #333; color: #fff; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 1.2em; }
-        .status-active { background-color: #007bff; } .status-done { background-color: #28a745; }
-        .config-area { margin-top: 50px; padding: 20px; border-top: 1px solid #ccc; font-size: 0.9em; color: #666; background: #f9f9f9; border-radius: 8px; }
-        .trigger-input { width: 50px; text-align: center; padding: 5px; margin: 0 5px; border: 1px solid #ccc; border-radius: 4px; }
-        .best-sector { background-color: #E1D5E7 !important; color: #6a1b9a !important; font-weight: 900 !important; border: 2px solid #9c27b0 !important; }
-        .sector-rank { font-size: 0.85em; color: #777; font-weight: normal; margin-left: 6px; display: inline-block; } .rank-first { color: #6a1b9a; font-weight: bold; }
+        input[type="text"] { font-family: inherit; padding: 14px; border-radius: 10px; border: 1px solid #dfe6e9; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); font-size: 1em; outline: none; transition: border 0.3s; }
+        input[type="text"]:focus { border-color: #74b9ff; box-shadow: 0 0 0 3px rgba(116, 185, 255, 0.2); }
+        select { font-family: inherit; padding: 12px 20px; border-radius: 10px; border: 1px solid #dfe6e9; background: white; font-size: 1.1em; font-weight: 600; color: #2d3436; box-shadow: 0 4px 6px rgba(0,0,0,0.02); outline: none; cursor: pointer; }
+
+        table { margin: 25px auto; border-collapse: separate; border-spacing: 0; width: 100%; background: white; box-shadow: 0 10px 25px rgba(0,0,0,0.04); border-radius: 16px; overflow: hidden; }
+        th, td { padding: 15px 18px; text-align: center; border-bottom: 1px solid #f1f2f6; } 
+        th { background-color: #f8f9fa; font-weight: 800; color: #636e72; text-transform: uppercase; font-size: 0.85em; letter-spacing: 1px; border-bottom: 2px solid #dfe6e9; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background-color: #fafbfc; }
+        .negative-diff { color: #00b894; font-weight: 800; } .positive-diff { color: #d63031; font-weight: 800; }
+        
+        .current-racer { background: linear-gradient(135deg, #2d3436, #636e72); color: #fff; padding: 20px; border-radius: 16px; margin-bottom: 25px; font-size: 1.3em; font-weight: 700; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-left: 6px solid #74b9ff; display: flex; justify-content: center; align-items: center; letter-spacing: 0.5px; }
+        .status-active { background: linear-gradient(135deg, #0984e3, #74b9ff); border-left-color: #00cec9; } 
+        .status-done { background: linear-gradient(135deg, #00b894, #55efc4); border-left-color: #ffeaa7; color: #2d3436; }
+        
+        .config-area { margin-top: 60px; padding: 30px; font-size: 0.95em; color: #636e72; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); border: 1px solid rgba(255,255,255,0.8); }
+        .config-area h3 { color: #2d3436; font-weight: 800; margin-top: 0; }
+        .trigger-input { width: 60px; text-align: center; padding: 10px; margin: 0 8px; border: 2px solid #dfe6e9; border-radius: 8px; font-weight: 700; color: #2d3436; background: #ffffff; transition: all 0.2s; font-family: inherit; }
+        .trigger-input:focus { outline: none; border-color: #0984e3; box-shadow: 0 0 0 3px rgba(9, 132, 227, 0.2); }
+        
+        .best-sector { background-color: #f3a68333 !important; color: #e15f41 !important; font-weight: 900 !important; border-left: 4px solid #e15f41 !important; }
+        .sector-rank { font-size: 0.85em; color: #a4b0be; font-weight: 600; margin-left: 8px; display: inline-block; background: #f1f2f6; padding: 2px 6px; border-radius: 10px; } .rank-first { color: #e15f41; background: #f3a68333; }
 
         #trackMarkers { position: absolute; width: 100%; height: 100%; top: 0; left: 0; pointer-events: none; z-index: 15; }
-        .gate-marker { position: absolute; width: 24px; height: 3px; background: rgba(0,0,0,0.5); left: 8px; z-index: 15; border-radius: 2px; }
-        .gate-label { position: absolute; left: 45px; font-size: 0.85em; font-weight: bold; color: #555; transform: translateY(-50%); }
-        .gate-delta { position: absolute; left: 65px; font-size: 0.9em; font-weight: 900; transform: translateY(-50%); background: #fff; padding: 2px 6px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.15); border-left: 4px solid #ccc; }
-        .sector-delta { position: absolute; left: 45px; font-size: 0.85em; font-weight: 900; transform: translateY(-50%); background: #fff; padding: 2px 6px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.15); border-left: 4px solid #ccc; opacity: 0; transition: opacity 0.5s ease; }
+        .gate-marker { position: absolute; width: 24px; height: 3px; background: rgba(45, 52, 54, 0.7); left: 8px; z-index: 15; border-radius: 2px; }
+        .gate-label { position: absolute; left: 45px; font-size: 0.85em; font-weight: 800; color: #636e72; transform: translateY(-50%); background: rgba(255,255,255,0.8); padding: 2px 6px; border-radius: 4px; backdrop-filter: blur(4px); }
+        .gate-delta { position: absolute; left: 75px; font-size: 0.9em; font-weight: 900; transform: translateY(-50%); background: #ffffff; padding: 4px 8px; border-radius: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-left: 4px solid #b2bec3; }
+        .sector-delta { position: absolute; left: 45px; font-size: 0.85em; font-weight: 900; transform: translateY(-50%); background: #ffffff; padding: 4px 8px; border-radius: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-left: 4px solid #b2bec3; opacity: 0; transition: opacity 0.5s ease; }
 
         /* --- GİZLİ TV MODU TASARIMLARI --- */
         body.tv-mode { background-color: #00ff00 !important; }
@@ -75,6 +96,18 @@
 
         /* TV YAN PANEL VE ÖZGÜR NOKTA */
         #tv-sidebar { position: fixed; right: 40px; top: 15%; height: 60%; display: none; flex-direction: row; align-items: stretch; justify-content: flex-end; z-index: 9998; pointer-events: none; }
+        
+        /* TV MINI LEADERBOARD (Sol Kenar) */
+        #tv-mini-leaderboard { position: fixed; left: 40px; bottom: 40px; z-index: 9999; display: none; flex-direction: column; width: 320px; transform: translateX(-150%); transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1); font-family: 'Helvetica Neue', Arial, sans-serif; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        body.tv-mode #tv-mini-leaderboard { display: flex; }
+        #tv-mini-leaderboard.show { transform: translateX(0); }
+        .tv-lb-header { background: #e67e22; color: white; padding: 10px 15px; font-weight: 900; font-size: 1.1em; border-top-left-radius: 8px; border-top-right-radius: 8px; text-transform: uppercase; letter-spacing: 1px; }
+        .tv-lb-row { display: flex; background: rgba(30, 30, 30, 0.95); color: white; padding: 10px 15px; align-items: center; border-bottom: 1px solid #444; font-size: 1.15em; font-weight: bold; }
+        .tv-lb-row:last-child { border-bottom: none; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; }
+        .tv-lb-row.active-racer { background: rgba(41, 128, 185, 0.95); }
+        .tv-lb-rank { width: 35px; text-align: center; color: #f1c40f; font-weight: 900; margin-right: 12px; }
+        .tv-lb-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; }
+        .tv-lb-time { font-family: 'Courier New', monospace; font-weight: 900; min-width: 80px; text-align: right; }
         body.tv-mode #tv-sidebar.show { display: flex; }
         
         #tv-splits-container { position: relative; width: 250px; margin-right: 15px; z-index: 1; }
@@ -114,7 +147,7 @@
         }
         .tv-streak-label {
             position: absolute;
-            right: 18px; /* Parantezin solu */
+            right: 18px;
             top: 50%;
             transform: translateY(-50%);
             font-weight: 900;
@@ -127,7 +160,31 @@
             letter-spacing: 1px;
             white-space: nowrap;
         }
+
+        /* --- MOBİL / KÜÇÜK EKRAN DÜZELTMELERİ --- */
+        @media (max-width: 900px) {
+            body { 
+                display: block; 
+                padding: 10px; 
+                overflow-x: auto; 
+            }
+            .main-content { 
+                margin-left: 160px; 
+                text-align: center;
+            }
+            input[type="text"] { 
+                width: 140px !important; 
+            }
+            .live-display-container {
+                min-width: unset;
+                padding: 15px;
+            }
+            .timer-display { font-size: 3.5em; }
+            #liveDifference { font-size: 4.5em; }
+        }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
 
@@ -154,6 +211,7 @@
                 <div id="tv-pre-flag" class="tv-pre-start-flag"></div>
             </div>
             <div id="tv-pre-info" class="tv-pre-start-info"></div>
+            <div id="tv-pre-desc" style="font-size: 0.9em; font-style: italic; color: #f1c40f; margin-top: 10px; text-align: center; display: none;"></div>
         </div>
 
         <div id="tv-live-banner" class="tv-live-banner-container" style="display:none;">
@@ -174,6 +232,8 @@
         </div>
     </div>
 
+    <div id="tv-mini-leaderboard"></div>
+
     <div class="track-container">
         <div id="modeDisplay">MOD: HAZIR</div>
         <div class="track-line-wrapper">
@@ -188,6 +248,7 @@
         <h1>Alp Disiplini Kronometre</h1>
         <div style="margin-bottom: 20px; display:flex; justify-content:center; gap:10px;">
             <input type="text" id="newRacerName" placeholder="Örn: M. Shiffrin (USA)" style="padding:10px; width: 200px;">
+            <input type="text" id="newRacerDesc" placeholder="Açıklama (Opsiyonel)" style="padding:10px; width: 200px;">
             <button onclick="addRacer()">Yarışmacı Ekle</button>
             <button onclick="resetAll(this)" style="background:#666; color:white; transition: 0.3s;">Reset</button>
         </div>
@@ -236,9 +297,14 @@
             <br>
             <button onclick="setLastRunAsReference(this)" style="background:#2ecc71; color:white; font-weight:bold; transition: 0.3s;">🏁 SON YARIŞÇIYI REFERANS YAP</button>
             <button onclick="resetReferenceData(this)" style="background:#e67e22; color:white; transition: 0.3s;">Referans Verisini SİL</button>
-            <button onclick="downloadResultsCSV()" style="background:#27ae60; color:white; padding: 10px 15px; font-weight:bold; border-radius:5px; margin-top:10px; border:none; cursor:pointer; width:100%;">
-    📊 GÜNÜN SONUÇLARINI İNDİR (EXCEL/CSV)
-            </button>
+            <div style="margin-top: 25px; padding: 20px; border: 1px solid #dfe6e9; border-radius: 12px; background: #f8f9fa;">
+                <h4 style="margin-top:0; color:#2d3436;">Raporlama (PDF / CSV)</h4>
+                <input type="text" id="pdfReportTitle" placeholder="PDF Rapor Başlığı (Örn: Türkiye Şampiyonası - Slalom)" style="width: 100%; padding: 12px; margin-bottom: 15px; box-sizing: border-box; border-radius: 8px; border: 1px solid #ccc;">
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="downloadResultsPDF()" style="flex:1; background:#c0392b; color:white; padding: 12px; font-weight:bold; border-radius:8px; border:none; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">📄 PDF İNDİR</button>
+                    <button onclick="downloadResultsCSV()" style="flex:1; background:#27ae60; color:white; padding: 12px; font-weight:bold; border-radius:8px; border:none; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">📊 CSV İNDİR</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -554,8 +620,8 @@
         let resetAllTimeout;
         function resetAll(btn) {
             if (btn.dataset.confirming === "true") {
-                sendMessage('reset_all'); clearTimeout(resetAllTimeout); btn.dataset.confirming = "false";
-                btn.textContent = "✅ RESETLENDİ"; btn.style.backgroundColor = "#28a745";
+                sendMessage('reset_all'); btn.dataset.confirming = "false"; btn.textContent = "✅ SIFIRLANDI!"; btn.style.backgroundColor = "#28a745";
+                window.k1ShownSet = new Set(); window.k2ShownSet = new Set(); window.finishShownSet = new Set();
                 setTimeout(() => { btn.textContent = "Reset"; btn.style.backgroundColor = "#666"; }, 2000);
             } else {
                 btn.dataset.confirming = "true"; const oldText = btn.textContent; btn.textContent = "EMİN MİSİN? (TEKRAR)"; btn.style.backgroundColor = "#dc3545";
@@ -826,8 +892,9 @@
 
             if (r1 && r1.fark && r1.fark !== '---') {
                 if (mk1) { mk1.style.display = 'block'; mk1.innerHTML = `<span style="color:${getColor(r1.fark)}">${r1.fark}</span>`; mk1.style.borderLeftColor = getColor(r1.fark); }
-                if (window.k1ShownFor !== runKey) {
-                    window.k1ShownFor = runKey; 
+                window.k1ShownSet = window.k1ShownSet || new Set();
+                if (!window.k1ShownSet.has(runKey)) {
+                    window.k1ShownSet.add(runKey);
                     let myTimeVal = Math.round(parseTimeStr(r1.sektor_sure) * 100); 
                     let rank = r1.sektor_sure ? ((sectorTimesMap['Kapı 1'] || []).indexOf(myTimeVal) + 1) : 1;
                     
@@ -840,14 +907,15 @@
                     }
                 }
             } else {
-                if (window.k1ShownFor === runKey) window.k1ShownFor = null;
+                if (window.k1ShownSet && window.k1ShownSet.has(runKey)) window.k1ShownSet.delete(runKey);
                 if (mk1) mk1.style.display = 'none'; if (ms01) ms01.style.opacity = '0';
             }
             
             if (r2 && r2.fark && r2.fark !== '---') {
                 if (mk2) { mk2.style.display = 'block'; mk2.innerHTML = `<span style="color:${getColor(r2.fark)}">${r2.fark}</span>`; mk2.style.borderLeftColor = getColor(r2.fark); }
-                if (window.k2ShownFor !== runKey) {
-                    window.k2ShownFor = runKey;
+                window.k2ShownSet = window.k2ShownSet || new Set();
+                if (!window.k2ShownSet.has(runKey)) {
+                    window.k2ShownSet.add(runKey);
                     let myTimeVal = Math.round(parseTimeStr(r2.sektor_sure) * 100); 
                     let rank = r2.sektor_sure ? ((sectorTimesMap['Kapı 2'] || []).indexOf(myTimeVal) + 1) : 1;
                     
@@ -860,13 +928,14 @@
                     }
                 }
             } else {
-                if (window.k2ShownFor === runKey) window.k2ShownFor = null;
+                if (window.k2ShownSet && window.k2ShownSet.has(runKey)) window.k2ShownSet.delete(runKey);
                 if (mk2) mk2.style.display = 'none'; if (ms12) ms12.style.opacity = '0';
             }
 
             if (rBitis && rBitis.fark && rBitis.fark !== '---') {
-                if (window.finishShownFor !== runKey) {
-                    window.finishShownFor = runKey;
+                window.finishShownSet = window.finishShownSet || new Set();
+                if (!window.finishShownSet.has(runKey)) {
+                    window.finishShownSet.add(runKey);
                     triggerTVSplit(rBitis.fark, null, "finish", 100); 
                     freezeTVClock(rBitis.sure, rBitis.fark); 
                     
@@ -874,10 +943,73 @@
                     window.tvFinishTimestamp = Date.now();
                     window.tvForceFinishShowUntil = Date.now() + 6000;
                     window.tvClearedForCurrentRacer = false;
+                    
+                    showMiniLeaderboard(displayTurn);
                 }
             } else {
-                if (window.finishShownFor === runKey) window.finishShownFor = null;
+                if (window.finishShownSet && window.finishShownSet.has(runKey)) window.finishShownSet.delete(runKey);
             }
+        }
+
+        function showMiniLeaderboard(turn) {
+            let container = document.getElementById('tv-mini-leaderboard');
+            if (!container) return;
+            
+            let list = [];
+            Object.values(allRacers).forEach(r => {
+                let info = turn === 1 ? r.tablo_1_bilgi : r.tablo_2_bilgi;
+                if (info && info.sure && info.sure !== '---' && info.sure !== '00:00.00') {
+                    list.push({
+                        id: r.id,
+                        isim: parseRacerName(r.isim).name,
+                        sureStr: info.sure,
+                        farkStr: info.fark || "",
+                        ms: parseTimeStr(info.sure)
+                    });
+                }
+            });
+            
+            list.sort((a,b) => a.ms - b.ms);
+            
+            let currentRank = 1;
+            for(let i=0; i<list.length; i++) {
+                if(i > 0 && list[i].ms === list[i-1].ms) {
+                    list[i].rank = list[i-1].rank;
+                } else {
+                    list[i].rank = i + 1;
+                }
+            }
+            
+            let top5 = list.slice(0, 5);
+            let activeIdx = list.findIndex(r => r.id === activeRacerId);
+            let showActiveAtBottom = (activeIdx >= 5);
+            
+            let html = `<div class="tv-lb-header">${turn}. TUR LİDERLİK TABLOSU</div>`;
+            
+            const createRow = (r) => {
+                let isActive = r.id === activeRacerId ? 'active-racer' : '';
+                let displayTime = r.rank === 1 ? r.sureStr : (r.farkStr || ("+" + (r.ms - list[0].ms).toFixed(2)));
+                return `<div class="tv-lb-row ${isActive}">
+                    <div class="tv-lb-rank">${r.rank}.</div>
+                    <div class="tv-lb-name">${r.isim}</div>
+                    <div class="tv-lb-time">${displayTime}</div>
+                </div>`;
+            };
+            
+            top5.forEach(r => { html += createRow(r); });
+            
+            if (showActiveAtBottom && activeIdx !== -1) {
+                html += `<div class="tv-lb-row" style="padding: 2px; justify-content:center; border-bottom:1px solid #444;"><div style="width:4px;height:4px;border-radius:50%;background:#ccc;"></div><div style="width:4px;height:4px;border-radius:50%;background:#ccc;margin:0 4px;"></div><div style="width:4px;height:4px;border-radius:50%;background:#ccc;"></div></div>`;
+                html += createRow(list[activeIdx]);
+            }
+            
+            container.innerHTML = html;
+            container.classList.add('show');
+            
+            if (window.miniLbTimeout) clearTimeout(window.miniLbTimeout);
+            window.miniLbTimeout = setTimeout(() => {
+                container.classList.remove('show');
+            }, 8000);
         }
 
         function updateLeaderboards(racers, queue) {
@@ -922,7 +1054,7 @@
         }
         
         function sendMessage(act, d={}) { if(socket.readyState===1) socket.send(JSON.stringify({action:act, ...d})); }
-        function addRacer() { const n=document.getElementById('newRacerName').value.trim(); if(n){sendMessage('ekle',{isim:n});document.getElementById('newRacerName').value='';} }
+        function addRacer() { const n=document.getElementById('newRacerName').value.trim(); const d=document.getElementById('newRacerDesc').value.trim(); if(n){sendMessage('ekle',{isim:n, aciklama:d});document.getElementById('newRacerName').value='';document.getElementById('newRacerDesc').value='';} }
         function sendStartSignal(t) { 
             if(activeRacerId){
                 let startMs = Date.now();
@@ -1021,6 +1153,90 @@
                 link.setAttribute("download", `Alp_Disiplini_Antrenman_${dateStr}.csv`); link.style.visibility = 'hidden';
                 document.body.appendChild(link); link.click(); document.body.removeChild(link);
             }
+        }
+
+        function downloadResultsPDF() {
+            if (!window.jspdf) { alert("PDF kutuphanesi yuklenemedi. Lutfen internet baglantinizi kontrol edin."); return; }
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'pt', 'a4');
+            const title = document.getElementById('pdfReportTitle').value.trim() || "Alp Disiplini Sonuc Raporu";
+            
+            let dateStr = new Date().toLocaleString('tr-TR');
+            
+            doc.setFontSize(18);
+            doc.text(title, 40, 40);
+            doc.setFontSize(10);
+            doc.text("Tarih: " + dateStr, 40, 55);
+
+            // 1. Tur Tablosu
+            let t1Data = [];
+            let list1 = Object.values(allRacers).filter(r => r.tablo_1_bilgi && r.tablo_1_bilgi.sure && r.tablo_1_bilgi.sure !== '---' && r.tablo_1_bilgi.sure !== '00:00.00');
+            list1.sort((a,b) => parseTimeStr(a.tablo_1_bilgi.sure) - parseTimeStr(b.tablo_1_bilgi.sure));
+            list1.forEach((r, i) => {
+                t1Data.push([i+1, r.numara, r.isim, r.aciklama || "-", r.tablo_1_bilgi.sure]);
+            });
+
+            doc.setFontSize(14);
+            doc.text("1. Tur Siralamasi", 40, 80);
+            
+            doc.autoTable({
+                startY: 90,
+                head: [['Sira', 'Bib', 'Isim', 'Aciklama', 'Sure']],
+                body: t1Data,
+                theme: 'striped',
+                headStyles: { fillColor: [44, 62, 80] }
+            });
+
+            // 2. Tur Tablosu
+            let t2Data = [];
+            let list2 = Object.values(allRacers).filter(r => r.tablo_2_bilgi && r.tablo_2_bilgi.sure && r.tablo_2_bilgi.sure !== '---' && r.tablo_2_bilgi.sure !== '00:00.00');
+            list2.sort((a,b) => parseTimeStr(a.tablo_2_bilgi.sure) - parseTimeStr(b.tablo_2_bilgi.sure));
+            list2.forEach((r, i) => {
+                t2Data.push([i+1, r.numara, r.isim, r.aciklama || "-", r.tablo_2_bilgi.sure, r.tablo_2_bilgi.fark || ""]);
+            });
+
+            let finalY = doc.lastAutoTable.finalY || 90;
+            doc.text("2. Tur (Genel) Siralamasi", 40, finalY + 30);
+            
+            doc.autoTable({
+                startY: finalY + 40,
+                head: [['Sira', 'Bib', 'Isim', 'Aciklama', 'Toplam Sure', 'Fark']],
+                body: t2Data,
+                theme: 'striped',
+                headStyles: { fillColor: [41, 128, 185] }
+            });
+
+            // Detaylı Sektör Tablosu (Yeni Sayfa)
+            doc.addPage();
+            doc.setFontSize(14);
+            doc.text("Sektor Analizi (Gecis Noktalari)", 40, 40);
+
+            let sectorData = [];
+            Object.values(allRacers).forEach(r => {
+                let t1Kayitlar = r.kayitlar.filter(rec => parseInt(rec.tur) === 1);
+                let k1_t1 = t1Kayitlar.find(x => x.etiket === 'Kapı 1'); k1_t1 = k1_t1 ? k1_t1.sure : "-";
+                let k2_t1 = t1Kayitlar.find(x => x.etiket === 'Kapı 2'); k2_t1 = k2_t1 ? k2_t1.sure : "-";
+                
+                let t2Kayitlar = r.kayitlar.filter(rec => parseInt(rec.tur) === 2);
+                let k1_t2 = t2Kayitlar.find(x => x.etiket === 'Kapı 1'); k1_t2 = k1_t2 ? k1_t2.sure : "-";
+                let k2_t2 = t2Kayitlar.find(x => x.etiket === 'Kapı 2'); k2_t2 = k2_t2 ? k2_t2.sure : "-";
+
+                let t1Sure = r.tablo_1_bilgi?.sure || "-";
+                let t2Sure = r.tablo_2_bilgi?.sure || "-";
+
+                sectorData.push([r.numara, r.isim, k1_t1, k2_t1, t1Sure, k1_t2, k2_t2, t2Sure]);
+            });
+
+            doc.autoTable({
+                startY: 50,
+                head: [['Bib', 'Isim', 'T1 K1', 'T1 K2', 'T1 Bitis', 'T2 K1', 'T2 K2', 'T2 Bitis']],
+                body: sectorData,
+                theme: 'grid',
+                styles: { fontSize: 9, halign: 'center' },
+                headStyles: { fillColor: [142, 68, 173] }
+            });
+
+            doc.save("Yaris_Raporu.pdf");
         }
 
         // --- MANUEL TV YÖNETMENİ ---
@@ -1314,6 +1530,14 @@
                     }
                 }
                 document.getElementById('tv-pre-info').innerHTML = infoHtml;
+
+                let descEl = document.getElementById('tv-pre-desc');
+                if (tvRacer.aciklama) {
+                    descEl.textContent = tvRacer.aciklama;
+                    descEl.style.display = 'block';
+                } else {
+                    descEl.style.display = 'none';
+                }
             } 
             
             else if (tvRacer.durum === 'AKTIF') {
