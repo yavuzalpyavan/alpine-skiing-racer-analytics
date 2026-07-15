@@ -13,10 +13,11 @@ CONNECTED_CLIENTS = set()
 class Yarismaci:
     """Tek bir yarışçının zaman verilerini tutar. Tüm süreler artık TAMSAYI SANTİSANİYE (0.01s) olarak saklanır."""
 
-    def __init__(self, yarismaci_id, isim, numara):
+    def __init__(self, yarismaci_id, isim, numara, aciklama=""):
         self.id = yarismaci_id
         self.isim = isim
         self.numara = numara
+        self.aciklama = aciklama
         self.baslangic_zamani = None
         # ara_zamanlar formatı: (Santisaniye, Etiket, LiderFarki_Santisaniye, Tur_No)
         self.ara_zamanlar = []
@@ -83,10 +84,10 @@ class YarisYoneticisi:
 
         return f"{isaret}{tam_saniye:d}.{salise:02d}"
 
-    def yarisci_ekle(self, isim):
+    def yarisci_ekle(self, isim, aciklama=""):
         """Yeni bir yarışçı ekler."""
         y_id = str(self.siradaki_numara)
-        y = Yarismaci(y_id, isim, self.siradaki_numara)
+        y = Yarismaci(y_id, isim, self.siradaki_numara, aciklama)
         self.yarismacilar[y_id] = y
         self.siradaki_numara += 1
         return y_id
@@ -433,6 +434,7 @@ async def guncel_yarismaci_listesini_yayinla():
             "id": y_id,
             "numara": yarismaci.numara,
             "isim": yarismaci.isim,
+            "aciklama": yarismaci.aciklama,
             "durum": yarismaci.durum,
             "aktif_tur": yarismaci.aktif_tur,
             "kayitlar": [
@@ -517,7 +519,8 @@ async def komut_isleyici(websocket):
             cevap = ""
 
             if action == 'ekle':
-                y_id = YARIS_YONETICISI.yarisci_ekle(isim)
+                aciklama = data.get('aciklama', '')
+                y_id = YARIS_YONETICISI.yarisci_ekle(isim, aciklama)
                 cevap = f"Yarışçı {isim} ({y_id}) eklendi."
 
             # YENİ: Mühürlü süreyi fonksiyona yolla
