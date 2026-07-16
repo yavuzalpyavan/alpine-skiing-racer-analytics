@@ -33,8 +33,6 @@ A professional-grade, high-precision live timing and broadcast graphics system d
 ---
 
 ## 🛠️ Architecture & Technology Stack (Mimari ve Teknoloji)
-[ Field Mobile App ] --> (HTTP/Socket Signals) --> [ Python WebSocket Server ] | (10 FPS Live Stream) v [ TV Overlay (OBS) ] <=========================== [ HTML5 Admin/TV Client ]
-
 
 * **Backend:** Python 3.x, `asyncio`, `websockets` (running on port `8765`).
 * **Frontend:** HTML5, CSS3 (Vanilla Glassmorphism), ES6 Javascript.
