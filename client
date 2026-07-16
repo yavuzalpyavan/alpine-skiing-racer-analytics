@@ -185,6 +185,7 @@
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
 </head>
 <body>
 
@@ -309,7 +310,7 @@
     </div>
 
     <script>
-        const WS_URL = "ws://192.168.1.48:8765"; // LÜTFEN IP'Yİ KONTROL ET
+        const WS_URL = "ws://192.168.1.82:8765"; // LÜTFEN IP'Yİ KONTROL ET
         let socket;
         let allRacers = {};
         let activeRacerId = null;
@@ -1155,16 +1156,27 @@
             }
         }
 
+        function replaceTRChars(str) {
+            return str || "";
+        }
+
         function downloadResultsPDF() {
             if (!window.jspdf) { alert("PDF kutuphanesi yuklenemedi. Lutfen internet baglantinizi kontrol edin."); return; }
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('p', 'pt', 'a4');
+            
+            if (window.pdfMake && window.pdfMake.vfs && window.pdfMake.vfs['Roboto-Regular.ttf']) {
+                doc.addFileToVFS('Roboto-Regular.ttf', window.pdfMake.vfs['Roboto-Regular.ttf']);
+                doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+                doc.setFont('Roboto');
+            }
+
             const title = document.getElementById('pdfReportTitle').value.trim() || "Alp Disiplini Sonuc Raporu";
             
             let dateStr = new Date().toLocaleString('tr-TR');
             
             doc.setFontSize(18);
-            doc.text(title, 40, 40);
+            doc.text(replaceTRChars(title), 40, 40);
             doc.setFontSize(10);
             doc.text("Tarih: " + dateStr, 40, 55);
 
@@ -1172,8 +1184,11 @@
             let t1Data = [];
             let list1 = Object.values(allRacers).filter(r => r.tablo_1_bilgi && r.tablo_1_bilgi.sure && r.tablo_1_bilgi.sure !== '---' && r.tablo_1_bilgi.sure !== '00:00.00');
             list1.sort((a,b) => parseTimeStr(a.tablo_1_bilgi.sure) - parseTimeStr(b.tablo_1_bilgi.sure));
+            let t1Rank = 1, lastT1Time = -1;
             list1.forEach((r, i) => {
-                t1Data.push([i+1, r.numara, r.isim, r.aciklama || "-", r.tablo_1_bilgi.sure]);
+                let currentMs = Math.round(parseTimeStr(r.tablo_1_bilgi.sure) * 100);
+                if (currentMs !== lastT1Time) { t1Rank = i + 1; lastT1Time = currentMs; }
+                t1Data.push([t1Rank, r.numara, replaceTRChars(r.isim), r.tablo_1_bilgi.sure]);
             });
 
             doc.setFontSize(14);
@@ -1181,18 +1196,22 @@
             
             doc.autoTable({
                 startY: 90,
-                head: [['Sira', 'Bib', 'Isim', 'Aciklama', 'Sure']],
+                head: [['Sira', 'Bib', 'Isim', 'Sure']],
                 body: t1Data,
                 theme: 'striped',
-                headStyles: { fillColor: [44, 62, 80] }
+                styles: { font: 'Roboto' },
+                headStyles: { fillColor: [44, 62, 80], font: 'Roboto' }
             });
 
             // 2. Tur Tablosu
             let t2Data = [];
             let list2 = Object.values(allRacers).filter(r => r.tablo_2_bilgi && r.tablo_2_bilgi.sure && r.tablo_2_bilgi.sure !== '---' && r.tablo_2_bilgi.sure !== '00:00.00');
             list2.sort((a,b) => parseTimeStr(a.tablo_2_bilgi.sure) - parseTimeStr(b.tablo_2_bilgi.sure));
+            let t2Rank = 1, lastT2Time = -1;
             list2.forEach((r, i) => {
-                t2Data.push([i+1, r.numara, r.isim, r.aciklama || "-", r.tablo_2_bilgi.sure, r.tablo_2_bilgi.fark || ""]);
+                let currentMs = Math.round(parseTimeStr(r.tablo_2_bilgi.sure) * 100);
+                if (currentMs !== lastT2Time) { t2Rank = i + 1; lastT2Time = currentMs; }
+                t2Data.push([t2Rank, r.numara, replaceTRChars(r.isim), r.tablo_2_bilgi.sure, r.tablo_2_bilgi.fark || ""]);
             });
 
             let finalY = doc.lastAutoTable.finalY || 90;
@@ -1200,10 +1219,11 @@
             
             doc.autoTable({
                 startY: finalY + 40,
-                head: [['Sira', 'Bib', 'Isim', 'Aciklama', 'Toplam Sure', 'Fark']],
+                head: [['Sira', 'Bib', 'Isim', 'Toplam Sure', 'Fark']],
                 body: t2Data,
                 theme: 'striped',
-                headStyles: { fillColor: [41, 128, 185] }
+                styles: { font: 'Roboto' },
+                headStyles: { fillColor: [41, 128, 185], font: 'Roboto' }
             });
 
             // Detaylı Sektör Tablosu (Yeni Sayfa)
@@ -1224,7 +1244,7 @@
                 let t1Sure = r.tablo_1_bilgi?.sure || "-";
                 let t2Sure = r.tablo_2_bilgi?.sure || "-";
 
-                sectorData.push([r.numara, r.isim, k1_t1, k2_t1, t1Sure, k1_t2, k2_t2, t2Sure]);
+                sectorData.push([r.numara, replaceTRChars(r.isim), k1_t1, k2_t1, t1Sure, k1_t2, k2_t2, t2Sure]);
             });
 
             doc.autoTable({
@@ -1232,8 +1252,8 @@
                 head: [['Bib', 'Isim', 'T1 K1', 'T1 K2', 'T1 Bitis', 'T2 K1', 'T2 K2', 'T2 Bitis']],
                 body: sectorData,
                 theme: 'grid',
-                styles: { fontSize: 9, halign: 'center' },
-                headStyles: { fillColor: [142, 68, 173] }
+                styles: { fontSize: 9, halign: 'center', font: 'Roboto' },
+                headStyles: { fillColor: [142, 68, 173], font: 'Roboto' }
             });
 
             doc.save("Yaris_Raporu.pdf");
