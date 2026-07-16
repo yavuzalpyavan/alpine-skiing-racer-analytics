@@ -1,51 +1,61 @@
-# 🎿 Real-Time Alpine Skiing Race Analytics & Physics Simulation Framework
+# Alpine Skiing Live Timing & Simulation System
+*(Alp Disiplini Canlı Süre Takip ve Simülasyon Sistemi)*
 
-A high-performance, full-stack broadcasting and telemetry analytics framework designed for Alpine Skiing races (FIS World Cup disciplines). The system features an asynchronous **Python** backend paired with a real-time, responsive **JavaScript/HTML5/CSS3** television-style graphics (TV Mode) and referee control interface.
-
----
-
-## 🚀 Key Engineering & Architectural Features
-
-### ⚡ 1. Network Latency Compensation Algorithm
-Wireless transmissions on local networks often introduce latency jitter (ranging between 250ms–300ms). To ensure millisecond-accurate live timing charts, the client-side JavaScript engine implements a custom **Latency Compensation** algorithm. It continuously cross-references high-resolution local client timers with server-stamped state logs, dynamically eliminating network transmission lag from the active live difference calculations.
-
-### 📊 2. Continuous Memory-Slicing Streak/Combo Trend Algorithm
-The core analytics layer runs a real-time mathematical slicing loop to monitor athlete trajectory efficiency. By assessing average delta changes over continuous sectors, the algorithm dynamically calculates speed trend shifts (gain/loss momentum) and instantly projects temporary performance brackets onto the broadcast interface.
-
-### 🔌 3. High-Efficiency Asynchronous Communication
-Built entirely on top of Python's **`asyncio`** and **`websockets`** infrastructure. Rather than forcing the server to constantly push heavy render loads at 100 FPS, the architecture offloads fluid rendering to the client-side via browser-native `requestAnimationFrame` hooks. This optimization reduced server compute frequency to a lean 10 FPS (0.1s interval sleep cycle), saving over 90% of server network overhead while keeping UI frame transitions entirely smooth.
-
-### 📁 4. Automated Analytical Exporting
-Includes modular data aggregation structures that compile deep-dive statistics per runner (Sector splits, historical gate differences, overall ranks, and individual run parameters) with automated, localized, Excel-compatible CSV report generation hooks.
+A professional-grade, high-precision live timing and broadcast graphics system designed for Alpine Skiing (Slalom / Giant Slalom) disciplines. The project consists of a Python-based server implementing high-resolution physics and synchronization manager, paired with an elegant, responsive HTML5 client that serves both as a controller interface and a professional TV broadcast graphics overlay (Chroma Key green screen compatible).
 
 ---
 
-## 🛠️ Tech Stack & Dependencies
+## 🚀 Features / Özellikler
 
-* **Backend:** Python 3.x, `asyncio`, `websockets`, `json`, `time`
-* **Frontend:** Vanilla JavaScript (ES6+), HTML5, CSS3 (Custom Glassmorphism & Adaptive Layouts)
-* **Architecture:** Event-Driven Bidirectional Client-Server Sync / Stateful Ledger
+### 1. High-Precision Timing & Physics (Yüksek Hassasiyetli Zamanlama ve Fizik)
+* **Centisecond Accuracy:** Handles timing data with centisecond (1/100s) precision, matching professional FIS timing equipment.
+* **Low-Latency WebSockets:** Powered by a lightweight Python WebSocket server broadcasting live telemetry at 10 FPS to ensure smooth graphic transitions.
+* **Dual-Run Support (1. ve 2. Tur Desteği):** Full event management for Alpine Skiing disciplines, including Run 1, Run 2, overall combined rankings, and DNF/DSQ tracking.
+
+### 2. Client Controller UI (Yönetici Arayüzü)
+* **Glassmorphic Light Theme:** Modern, clean, and high-contrast light-themed user interface designed for mobile phone screens to ensure physical buttons are easy to tap in snowy field conditions.
+* **Racer Descriptions (Yarışmacı Açıklamaları):** Optional text fields to register notes (e.g., ski brand, club, history) that automatically show up on the TV pre-start screen.
+* **Reference Timing (Referans Karşılaştırma):** One-click button to turn the last completed run into a comparison reference, displaying live relative advantage (+/-) on the track.
+* **Mobile Responsive Layout:** Custom media queries tailored for iOS/iPhone web-viewers preventing viewport clipping and allowing full horizontal scroll support.
+
+### 3. TV Broadcast Overlay Mode (TV Yayın/Grafik Modu)
+* **Chroma Key Green Screen:** Fullscreen broadcast overlay with pure green background `#00ff00`, ready for OBS or ATEM hardware mixers.
+* **Dynamic Pre-Start Card:** Bottom-right visual info box showing Bib Number, Racer Name, Run 1 details, Racer description, and relative leader gap.
+* **Interactive Track Side-Bar:** Vertical progress bar on the right showing the athlete's current physical position on the run with color-coded speed zones.
+* **Live TV Mini Leaderboard (Top 5 Pop-up):** A pop-up sliding list triggered upon racer finish showing top 5 current rankings. If the finishing racer is outside the top 5, it appends a custom 6th row with dynamic transition dots (`...`) to display their exact rank.
+* **Sector Split Time Drawers:** Floating dynamic drawers presenting instant split times at Gate 1, Gate 2, and the Finish line.
+
+### 4. Professional PDF Reporting (PDF Raporlama Çıktısı)
+* Generates clean, ready-to-print PDF race protocols using `jsPDF` and `jspdf-autotable`.
+* Allows inputting custom PDF document headers.
+* Exports structured data tables including Run 1 Results, Run 2 Results, and Detailed Sector Analysis (Gate 1 & Gate 2 splits).
 
 ---
 
-## 💻 Installation & Quick Start
+## 🛠️ Architecture & Technology Stack (Mimari ve Teknoloji)
+[ Field Mobile App ] --> (HTTP/Socket Signals) --> [ Python WebSocket Server ] | (10 FPS Live Stream) v [ TV Overlay (OBS) ] <=========================== [ HTML5 Admin/TV Client ]
 
-1. **Clone the Repository:**
-   ```bash
-   git clone [https://github.com/YOUR_GITHUB_USERNAME/alpine-skiing-racer-analytics.git](https://github.com/YOUR_GITHUB_USERNAME/alpine-skiing-racer-analytics.git)
-   cd alpine-skiing-racer-analytics
 
-Run the WebSocket Server:
+* **Backend:** Python 3.x, `asyncio`, `websockets` (running on port `8765`).
+* **Frontend:** HTML5, CSS3 (Vanilla Glassmorphism), ES6 Javascript.
+* **PDF Exporter:** `jsPDF` & `jspdf-autotable` integration.
 
-Bash
+---
 
-python server/alpdisiplinibeta.py
+## 📦 Installation & Running (Kurulum ve Çalıştırma)
 
-Launch the Interface:
+### Prerequisites (Gereksinimler)
+Make sure you have Python 3.x installed. Install the `websockets` package:
+```bash
+pip install websockets
 
-Open client/alpdisiplinibeta.html in any modern web browser. Click the 📺 TV MODU button to activate the automated overlay system.
+1. Start the Server (Sunucuyu Başlatın)
+Run the python script to boot up the telemetry manager:
 
-📊 Live System Previews
-TV Mode Graphics: Operates on an automated Chroma Key green background for direct broadcasting integration. Features dynamic pre-start cards, live target calculations, and high-performance scrolling split times.
+python alpdisiplinibeta.py
 
-Automation Settings: Configurable micro-gate turning triggers allowing absolute layout synchronization with the actual physical course boundaries.
+2. Open the Client (İstemciyi Açın)
+Simply double-click or open alpdisiplinibeta.html in any web browser (Chrome, Safari, Firefox).
+
+To toggle the TV overlay, click the "TV MODU" button in the top right corner.
+To exit TV mode, click the red "TV MODUNDAN ÇIK" button.
