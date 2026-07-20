@@ -310,7 +310,7 @@
     </div>
 
     <script>
-        const WS_URL = "ws://192.168.1.82:8765"; // LÜTFEN IP'Yİ KONTROL ET
+        const WS_URL = "YOUR IP"; // LÜTFEN IP'Yİ KONTROL ET
         let socket;
         let allRacers = {};
         let activeRacerId = null;
